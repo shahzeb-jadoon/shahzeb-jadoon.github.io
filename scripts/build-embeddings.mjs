@@ -49,11 +49,22 @@ async function gather() {
     const slug = f.replace(/\.md$/, '');
     const raw = await readFile(path.join(dir, f), 'utf8');
     const close = raw.indexOf('---', 3);
+    const frontmatter = close >= 0 ? raw.slice(0, close) : '';
     const body = close >= 0 ? raw.slice(close + 3) : raw;
+
+    // Pull the frontmatter metrics + tags into the indexed text — these hold the
+    // highest-signal facts (hardware, latency, throughput) and would otherwise be
+    // dropped, since only the body was previously embedded.
+    const metricValues = [...frontmatter.matchAll(/(?:value|label):\s*"([^"]*)"/g)].map((m) => m[1]);
+    const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]*)\]/);
+    const tags = tagsMatch ? tagsMatch[1].replace(/["']/g, '').trim() : '';
+    const metricsText = metricValues.length ? `Metrics: ${metricValues.join(' · ')}.` : '';
+    const tagsText = tags ? `Tech: ${tags}.` : '';
+
     docs.push({
       title: fm(raw, 'title') || slug,
       url: `/work/${slug}/`,
-      text: stripMd(`${fm(raw, 'title')}. ${fm(raw, 'blurb')}. ${body}`),
+      text: stripMd(`${fm(raw, 'title')}. ${fm(raw, 'blurb')}. ${metricsText} ${tagsText} ${body}`),
     });
   }
 
