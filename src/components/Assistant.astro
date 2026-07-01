@@ -20,7 +20,15 @@
              placeholder="e.g. What did he do on neuromorphic hardware?" />
       <button class="asst-go" type="submit" aria-label="Search">→</button>
     </form>
+    <div class="asst-modes">
+      <button id="asst-ai" class="asst-ai" type="button" hidden>✨ Enable AI answers</button>
+      <span id="asst-ai-note" class="asst-note" hidden>AI answers need a WebGPU browser (Chrome/Edge desktop).</span>
+    </div>
     <p id="asst-status" class="asst-status" role="status" aria-live="polite"></p>
+    <div id="asst-answer-wrap" class="asst-answer-wrap" hidden>
+      <p id="asst-answer" class="asst-answer" aria-live="polite"></p>
+      <p class="asst-disclaimer">Generated in your browser from the excerpts below — verify against the linked pages.</p>
+    </div>
     <div id="asst-results" class="asst-results"></div>
     <p class="asst-foot">Runs entirely in your browser · nothing leaves this page.</p>
   </div>
@@ -62,6 +70,14 @@
   .asst-result b { font-size: 0.85rem; color: var(--text); display: block; }
   .asst-result span { font-size: 0.78rem; color: var(--text-dim); display: block; margin-top: 0.2rem; }
   .asst-foot { margin: 0.5rem 0 0; font-size: 0.72rem; color: var(--text-mute); font-family: var(--mono); }
+  .asst-modes { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .asst-ai { font-family: var(--mono); font-size: 0.75rem; color: var(--accent-2); background: transparent; border: 1px solid var(--glass-brd); border-radius: 999px; padding: 0.3rem 0.7rem; cursor: pointer; }
+  .asst-ai:hover { border-color: var(--accent-2); }
+  .asst-ai:disabled { opacity: 0.6; cursor: default; }
+  .asst-note { font-size: 0.72rem; color: var(--text-mute); font-family: var(--mono); }
+  .asst-answer-wrap { margin-top: 0.6rem; border: 1px solid var(--glass-brd); border-radius: 8px; padding: 0.7rem; background: var(--glass-bg); }
+  .asst-answer { margin: 0; font-size: 0.88rem; color: var(--text); line-height: 1.55; white-space: pre-wrap; }
+  .asst-disclaimer { margin: 0.5rem 0 0; font-size: 0.7rem; color: var(--text-mute); font-family: var(--mono); }
 </style>
 
 <script>
@@ -72,10 +88,26 @@
   const input = document.getElementById('asst-input') as HTMLInputElement;
   const statusEl = document.getElementById('asst-status')!;
   const results = document.getElementById('asst-results')!;
+  const aiBtn = document.getElementById('asst-ai') as HTMLButtonElement;
+  const aiNote = document.getElementById('asst-ai-note')!;
+  const answerWrap = document.getElementById('asst-answer-wrap')!;
+  const answerEl = document.getElementById('asst-answer')!;
 
   let extractor: any = null;
   let index: any = null;
   let modelPromise: Promise<any> | null = null;
+
+  // Opt-in generative tier (WebLLM, WebGPU) — grounded only in retrieved chunks.
+  let genEnabled = false;
+  let engine: any = null;
+  let enginePromise: Promise<any> | null = null;
+  const GEN_MODEL = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+  const SYS = [
+    'You answer questions about Shahzeb Jadoon using ONLY the provided context.',
+    'If the answer is not in the context, say "I don\'t have that on the site."',
+    'Be concise (2–4 sentences) and cite sources like [1], [2].',
+    'Do not invent facts. Do not claim ROS2 DDS middleware, TensorRT, Kubernetes, or RAG-at-scale. "RRI" means Robot-Robot Interaction.',
+  ].join(' ');
 
   const setStatus = (t: string) => { statusEl.textContent = t || ''; };
   const dot = (a: number[], b: number[]) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
@@ -99,6 +131,37 @@
       })();
     }
     return modelPromise;
+  }
+
+  function ensureEngine() {
+    if (!enginePromise) {
+      enginePromise = (async () => {
+        const webllm = await import(/* @vite-ignore */ 'https://esm.run/@mlc-ai/web-llm');
+        engine = await webllm.CreateMLCEngine(GEN_MODEL, {
+          initProgressCallback: (r: any) => setStatus(`Loading AI model… ${Math.round((r.progress || 0) * 100)}%`),
+        });
+        return engine;
+      })();
+    }
+    return enginePromise;
+  }
+
+  async function generate(q: string, top: any[]) {
+    answerWrap.hidden = false;
+    answerEl.textContent = '';
+    setStatus('Generating…');
+    const context = top.map((c, i) => `[${i + 1}] ${c.title}: ${c.text}`).join('\n\n');
+    const stream = await engine.chat.completions.create({
+      messages: [
+        { role: 'system', content: SYS },
+        { role: 'user', content: `Context:\n${context}\n\nQuestion: ${q}` },
+      ],
+      temperature: 0,
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      answerEl.textContent += chunk.choices?.[0]?.delta?.content || '';
+    }
   }
 
   function render(list: any[]) {
@@ -137,6 +200,8 @@
         if (top.length >= 4) break;
       }
       render(top);
+      if (genEnabled && engine) await generate(q, top);
+      else answerWrap.hidden = true;
       setStatus('');
     } catch {
       setStatus('Couldn’t load the search just now — please try again.');
@@ -162,4 +227,24 @@
   document.addEventListener('click', (e) => {
     if (!panel.hidden && !panel.contains(e.target as Node) && !toggle.contains(e.target as Node)) close();
   });
+
+  // Generative tier is offered only where WebGPU exists (desktop Chrome/Edge).
+  if ('gpu' in navigator) {
+    aiBtn.hidden = false;
+    aiBtn.addEventListener('click', async () => {
+      aiBtn.disabled = true;
+      setStatus('Loading AI model (~0.9 GB, one-time)…');
+      try {
+        await ensureEngine();
+        genEnabled = true;
+        aiBtn.textContent = '✨ AI answers on';
+        setStatus('AI answers enabled — ask a question.');
+      } catch {
+        setStatus('Couldn’t start the AI model. Using search results instead.');
+        aiBtn.disabled = false;
+      }
+    });
+  } else {
+    aiNote.hidden = false;
+  }
 </script>
