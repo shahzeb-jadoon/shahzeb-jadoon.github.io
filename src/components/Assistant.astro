@@ -1,0 +1,165 @@
+---
+// In-browser "Ask my portfolio" assistant — baseline semantic search (§16.2).
+// On first use it loads MiniLM from a CDN, embeds the visitor's question IN THEIR
+// browser, and cosine-matches against /embeddings.json. No server, no API, no data
+// leaves the page. Lazy: nothing loads until the panel is opened / a query is sent.
+---
+<div id="assistant">
+  <button id="asst-toggle" class="asst-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="asst-panel">
+    <span aria-hidden="true">◆</span> Ask my portfolio
+  </button>
+
+  <div id="asst-panel" class="asst-panel glass" role="dialog" aria-modal="true" aria-labelledby="asst-title" hidden>
+    <div class="asst-head">
+      <p id="asst-title" class="asst-title">Ask my portfolio</p>
+      <button id="asst-close" class="asst-x" type="button" aria-label="Close">✕</button>
+    </div>
+    <form id="asst-form" class="asst-form">
+      <label class="asst-sr" for="asst-input">Your question</label>
+      <input id="asst-input" class="asst-input" type="text" autocomplete="off"
+             placeholder="e.g. What did he do on neuromorphic hardware?" />
+      <button class="asst-go" type="submit" aria-label="Search">→</button>
+    </form>
+    <p id="asst-status" class="asst-status" role="status" aria-live="polite"></p>
+    <div id="asst-results" class="asst-results"></div>
+    <p class="asst-foot">Runs entirely in your browser · nothing leaves this page.</p>
+  </div>
+</div>
+
+<!-- global: result cards are created in JS and won't carry Astro's scope attribute -->
+<style is:global>
+  .asst-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .asst-fab {
+    position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 60;
+    font-family: var(--mono); font-size: 0.85rem; color: var(--accent);
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-brd); border-radius: 999px;
+    padding: 0.6rem 1rem; cursor: pointer; box-shadow: var(--shadow-glass);
+  }
+  .asst-fab:hover { border-color: var(--accent); }
+  .asst-panel {
+    position: fixed; right: 1.25rem; bottom: 4.5rem; z-index: 60;
+    width: min(360px, calc(100vw - 2.5rem)); max-height: min(70vh, 520px);
+    flex-direction: column; padding: 0.9rem;
+  }
+  .asst-panel:not([hidden]) { display: flex; }
+  .asst-panel[hidden] { display: none; }
+  .asst-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+  .asst-title { margin: 0; font-family: var(--mono); font-size: 0.9rem; color: var(--text); }
+  .asst-x { background: transparent; border: 0; color: var(--text-dim); font-size: 1rem; cursor: pointer; line-height: 1; }
+  .asst-x:hover { color: var(--text); }
+  .asst-form { display: flex; gap: 0.4rem; }
+  .asst-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--glass-brd); border-radius: 8px;
+    color: var(--text); padding: 0.5rem 0.6rem; font-family: var(--sans); font-size: 0.9rem;
+  }
+  .asst-go { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 0 0.8rem; font-size: 1rem; cursor: pointer; }
+  .asst-status { margin: 0.5rem 0 0; font-family: var(--mono); font-size: 0.78rem; color: var(--text-mute); min-height: 1em; }
+  .asst-results { overflow-y: auto; margin-top: 0.4rem; }
+  .asst-result { display: block; text-decoration: none; color: inherit; border: 1px solid var(--glass-brd); border-radius: 8px; padding: 0.6rem 0.7rem; margin-bottom: 0.5rem; background: var(--glass-bg); }
+  .asst-result:hover { border-color: var(--accent); }
+  .asst-result b { font-size: 0.85rem; color: var(--text); display: block; }
+  .asst-result span { font-size: 0.78rem; color: var(--text-dim); display: block; margin-top: 0.2rem; }
+  .asst-foot { margin: 0.5rem 0 0; font-size: 0.72rem; color: var(--text-mute); font-family: var(--mono); }
+</style>
+
+<script>
+  const toggle = document.getElementById('asst-toggle')!;
+  const panel = document.getElementById('asst-panel')!;
+  const closeBtn = document.getElementById('asst-close')!;
+  const form = document.getElementById('asst-form') as HTMLFormElement;
+  const input = document.getElementById('asst-input') as HTMLInputElement;
+  const statusEl = document.getElementById('asst-status')!;
+  const results = document.getElementById('asst-results')!;
+
+  let extractor: any = null;
+  let index: any = null;
+  let modelPromise: Promise<any> | null = null;
+
+  const setStatus = (t: string) => { statusEl.textContent = t || ''; };
+  const dot = (a: number[], b: number[]) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+
+  async function ensureIndex() {
+    if (index) return;
+    const res = await fetch('/embeddings.json');
+    if (!res.ok) throw new Error('index');
+    index = await res.json();
+  }
+
+  function ensureModel() {
+    if (!modelPromise) {
+      modelPromise = (async () => {
+        setStatus('Loading search model (~25 MB, first time)…');
+        const t = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+        t.env.allowLocalModels = false;
+        t.env.backends.onnx.wasm.numThreads = 1;
+        extractor = await t.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+        return extractor;
+      })();
+    }
+    return modelPromise;
+  }
+
+  function render(list: any[]) {
+    results.innerHTML = '';
+    if (!list.length) { setStatus('No matches found.'); return; }
+    for (const r of list) {
+      const a = document.createElement('a');
+      a.className = 'asst-result';
+      a.href = r.url;
+      const b = document.createElement('b'); b.textContent = r.title;
+      const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '');
+      let snip = r.text;
+      const cut = snip.indexOf('. ');
+      if (cut > 0 && norm(snip.slice(0, cut)) === norm(r.title)) snip = snip.slice(cut + 2);
+      const s = document.createElement('span'); s.textContent = snip.slice(0, 130).trim() + '…';
+      a.append(b, s);
+      results.appendChild(a);
+    }
+  }
+
+  async function search(q: string) {
+    try {
+      setStatus('Thinking…');
+      await ensureIndex();
+      await ensureModel();
+      const out = await extractor(q, { pooling: 'mean', normalize: true });
+      const v = Array.from(out.data) as number[];
+      const scored = index.chunks
+        .map((c: any) => ({ c, s: dot(v, c.vector) }))
+        .sort((a: any, b: any) => b.s - a.s);
+      const seen = new Set<string>();
+      const top: any[] = [];
+      for (const { c } of scored) {
+        if (seen.has(c.url)) continue;
+        seen.add(c.url); top.push(c);
+        if (top.length >= 4) break;
+      }
+      render(top);
+      setStatus('');
+    } catch {
+      setStatus('Couldn’t load the search just now — please try again.');
+    }
+  }
+
+  function open() {
+    panel.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    input.focus();
+    ensureIndex().catch(() => {});
+  }
+  function close() {
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.focus();
+  }
+
+  toggle.addEventListener('click', () => (panel.hidden ? open() : close()));
+  closeBtn.addEventListener('click', close);
+  form.addEventListener('submit', (e) => { e.preventDefault(); const q = input.value.trim(); if (q) search(q); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) close(); });
+  document.addEventListener('click', (e) => {
+    if (!panel.hidden && !panel.contains(e.target as Node) && !toggle.contains(e.target as Node)) close();
+  });
+</script>

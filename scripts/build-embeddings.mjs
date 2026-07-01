@@ -65,11 +65,6 @@ async function gather() {
     text: `${profile.name}, ${profile.role}. ${profile.tagline} Skills: ${profile.knowsAbout.join(', ')}. Based in ${profile.location}. Contact ${profile.email}, ${profile.phone}.`,
   });
 
-  // Curated fact sheet
-  try {
-    docs.push({ title: 'Facts', url: '/', text: stripMd(await readFile(P('public/llms.txt'), 'utf8')) });
-  } catch {}
-
   const chunks = [];
   let id = 0;
   for (const d of docs) for (const t of chunkWords(d.text)) chunks.push({ id: id++, title: d.title, url: d.url, text: t });

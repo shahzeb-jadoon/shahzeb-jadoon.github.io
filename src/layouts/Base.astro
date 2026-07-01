@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { site, nav } from '../data/site';
+import Assistant from '../components/Assistant.astro';
 
 interface Props {
   title?: string;
@@ -87,6 +88,8 @@ const jsonLd = profilePage
         <p class="mono" style="font-size:0.8rem">Built with Astro · hosted on GitHub Pages · zero third-party backend.</p>
       </div>
     </footer>
+
+    <Assistant />
 
     <script>
       // Reveal elements as they scroll into view (§4.3). Above-the-fold
