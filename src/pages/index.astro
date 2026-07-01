@@ -2,21 +2,11 @@
 import Base from '../layouts/Base.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../data/site';
+import { experience } from '../data/cv';
 
 const projects = (await getCollection('projects')).sort(
   (a, b) => a.data.order - b.data.order,
 );
-
-const experience = [
-  { role: 'Machine Learning Engineer Intern', org: 'BrainChip', period: 'May–Sep 2025 · Remote',
-    note: 'End-to-end PyTorch→Akida pipeline for high-res semantic segmentation on Akida 2.0 neuromorphic silicon — ~82% of SOTA accuracy at 7.5% of the parameters. Hardware-aware model surgery; INT8 QAT; pioneered halo-tiling.' },
-  { role: 'Graduate Research Trainee, NSF AWARE-AI NRT', org: 'RIT', period: 'Apr 2025–May 2026 · Rochester, NY',
-    note: 'Monocular depth estimation as a low-cost LiDAR alternative; benchmarked MiDaS / Depth-Anything on abs-rel error and latency.' },
-  { role: 'Graduate Researcher, Social Robotics', org: 'RIT', period: 'Sep 2025–May 2026 · Rochester, NY',
-    note: 'Built the group’s production multi-agent robot-robot platform (rri_orchestrator): async FastAPI, LiteLLM, PostgreSQL, Cloudflare Zero Trust + RBAC.' },
-  { role: 'Teaching Assistant — GenAI, Real-Time Systems, Control Systems', org: 'RIT', period: '2025–2026 · Rochester, NY',
-    note: 'Developed the curriculum for RIT’s new Intro to Generative AI; mentored bare-metal/FreeRTOS firmware on STM32; HIL control on Quanser Qube-Servo2.' },
-];
 ---
 <Base profilePage={true}>
   <!-- HERO -->

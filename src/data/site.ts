@@ -5,9 +5,9 @@ import profile from './profile.json';
 export const site = profile;
 
 export const nav = [
-  { href: '/', label: 'Home' },
-  { href: '/#projects', label: 'Projects' },
-  { href: '/#experience', label: 'Experience' },
-  { href: '/#writing', label: 'Writing' },
+  { href: '/work/', label: 'Work' },
+  { href: '/writing/', label: 'Writing' },
+  { href: '/about/', label: 'About' },
+  { href: '/cv/', label: 'CV' },
   { href: '/#contact', label: 'Contact' },
 ];

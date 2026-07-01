@@ -1,0 +1,51 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../data/site';
+import { experience, education, skillGroups } from '../data/cv';
+---
+<Base title="CV — Shahzeb Jadoon" description="Résumé of Shahzeb Jadoon — AI/ML engineer, edge AI & hardware-software co-design.">
+  <section aria-labelledby="cv-h" style="padding-top:2.5rem">
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:baseline;justify-content:space-between">
+      <h1 id="cv-h" style="margin:0">Curriculum Vitae</h1>
+      <a class="mono" href="/resume.pdf" style="font-size:0.9rem">Download PDF ↓</a>
+    </div>
+    <p class="lead">{site.role} · {site.location}</p>
+    <p class="mono" style="font-size:0.9rem">
+      <a href={`mailto:${site.email}`}>{site.email}</a> ·
+      <a href={`tel:${site.phoneE164}`}>{site.phone}</a> ·
+      <a href={site.github}>GitHub</a> · <a href={site.linkedin}>LinkedIn</a>
+    </p>
+
+    <h2>Experience</h2>
+    <ul class="timeline">
+      {experience.map((e) => (
+        <li>
+          <p class="role">{e.role} · <span style="color:var(--text-dim)">{e.org}</span></p>
+          <p class="meta">{e.period}</p>
+          <p>{e.note}</p>
+        </li>
+      ))}
+    </ul>
+
+    <h2>Education</h2>
+    <ul class="timeline">
+      {education.map((e) => (
+        <li>
+          <p class="role">{e.school}</p>
+          <p class="meta">{e.period}</p>
+          <p>{e.degree}</p>
+        </li>
+      ))}
+    </ul>
+
+    <h2>Skills</h2>
+    {skillGroups.map((g) => (
+      <div style="margin:0.75rem 0">
+        <p class="mono" style="margin:0 0 0.35rem;color:var(--accent);font-size:0.85rem">{g.label}</p>
+        <ul class="tags" aria-label={g.label}>
+          {g.items.map((s) => <li>{s}</li>)}
+        </ul>
+      </div>
+    ))}
+  </section>
+</Base>

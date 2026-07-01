@@ -1,0 +1,38 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../data/site';
+
+const pillars = [
+  { h: 'Edge AI & Hardware-Software Co-Design', p: 'INT8 quantization-aware training, post-training + dynamic quantization, model surgery to map backbones onto neuromorphic silicon, and custom CUDA kernels profiled to the roofline.' },
+  { h: 'Autonomous Systems & Computer Vision', p: 'End-to-end imitation learning, sensor fusion, and large-scale data engineering across CARLA — with an O(1) constant-state RWKV controller targeting Jetson-class and neuromorphic edge.' },
+  { h: 'Production Multi-Agent Systems', p: 'A full-stack platform decoupling the LLM “brain” from ROS2-ready robot “bodies” via async FastAPI, LiteLLM, PostgreSQL, and Cloudflare Zero Trust + RBAC.' },
+  { h: 'Quantitative Rigor & Evaluation', p: 'A statistics-first approach to reliability — multi-seed experiments, paired t-tests, effect sizes, and confidence intervals. I treat model outputs as distributions to bound before deployment.' },
+];
+---
+<Base title="About — Shahzeb Jadoon" description="Edge-AI engineer specializing in hardware-software co-design and autonomous systems.">
+  <section aria-labelledby="about-h" style="padding-top:2.5rem">
+    <h1 id="about-h">About</h1>
+    <p class="lead">The bottleneck in production AI isn’t model intelligence — it’s forcing complex,
+      non-deterministic networks to run flawlessly inside severe latency, memory, and power budgets.
+      That constraint-first problem is the one I solve.</p>
+
+    <p>I’m an AI/ML engineer specializing in hardware-software co-design and autonomous systems,
+      backed by an MS in Computer Engineering from RIT. I treat a model less like a black-box API and
+      more like a system with a variance budget that has to be measured and bounded before it ships.
+      A prior degree in Computer Science and Actuarial Science is the analytical lens I bring to that —
+      probability, statistics, and risk modeling as a way of thinking, not a shipped artifact.</p>
+
+    <h2>What I work on</h2>
+    {pillars.map((x) => (
+      <div class="glass" style="padding:1.1rem;margin:0.75rem 0">
+        <h3 style="margin:0 0 0.35rem">{x.h}</h3>
+        <p style="margin:0;color:var(--text-dim)">{x.p}</p>
+      </div>
+    ))}
+
+    <h2>Now</h2>
+    <p>Finishing the MS at RIT (conferred May 2026) and open to Forward-Deployed / Applied AI, ML
+      Engineering, and Edge-AI roles — building AI that survives contact with real hardware.
+      Reach me at <a href={`mailto:${site.email}`}>{site.email}</a>.</p>
+  </section>
+</Base>
