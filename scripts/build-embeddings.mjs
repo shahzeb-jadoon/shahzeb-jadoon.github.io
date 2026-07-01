@@ -11,7 +11,16 @@ import { fileURLToPath } from 'node:url';
 
 const SITE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const P = (...s) => path.join(SITE, ...s);
-const MODEL = 'Xenova/all-MiniLM-L6-v2';
+
+// bge-small-en-v1.5 is a stronger retriever than MiniLM at the same ~384-dim size.
+// It was fine-tuned with CLS pooling (not mean), so the browser MUST use the same
+// model + pooling or the vectors live in different spaces. For retrieval, the query
+// (only) is prefixed with QUERY_INSTRUCTION; passages are embedded as-is. These three
+// values are written into embeddings.json so the browser reads them — one source of
+// truth, no build/runtime drift.
+const MODEL = 'Xenova/bge-small-en-v1.5';
+const POOLING = 'cls';
+const QUERY_INSTRUCTION = 'Represent this sentence for searching relevant passages: ';
 
 const stripMd = (s) =>
   s
@@ -86,13 +95,21 @@ const round = (v) => Math.round(v * 1e5) / 1e5;
 
 async function main() {
   const chunks = await gather();
-  console.log(`Embedding ${chunks.length} chunks with ${MODEL} …`);
+  console.log(`Embedding ${chunks.length} chunks with ${MODEL} (${POOLING} pooling) …`);
   const extract = await pipeline('feature-extraction', MODEL);
   for (const ch of chunks) {
-    const out = await extract(ch.text, { pooling: 'mean', normalize: true });
+    // Passages are embedded without the query instruction (asymmetric retrieval).
+    const out = await extract(ch.text, { pooling: POOLING, normalize: true });
     ch.vector = Array.from(out.data, round);
   }
-  const payload = { model: MODEL, dim: chunks[0]?.vector.length ?? 384, count: chunks.length, chunks };
+  const payload = {
+    model: MODEL,
+    pooling: POOLING,
+    queryInstruction: QUERY_INSTRUCTION,
+    dim: chunks[0]?.vector.length ?? 384,
+    count: chunks.length,
+    chunks,
+  };
   await writeFile(P('public/embeddings.json'), JSON.stringify(payload));
   console.log(`Wrote public/embeddings.json — ${chunks.length} chunks, dim ${payload.dim}.`);
 }

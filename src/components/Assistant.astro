@@ -122,11 +122,14 @@
   function ensureModel() {
     if (!modelPromise) {
       modelPromise = (async () => {
-        setStatus('Loading search model (~25 MB, first time)…');
+        setStatus('Loading search model (~35 MB, first time)…');
         const t = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
         t.env.allowLocalModels = false;
         t.env.backends.onnx.wasm.numThreads = 1;
-        extractor = await t.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+        // Model is taken from the index so the browser can never drift from the
+        // model the vectors were built with (ensureIndex runs first in search()).
+        const model = (index && index.model) || 'Xenova/bge-small-en-v1.5';
+        extractor = await t.pipeline('feature-extraction', model);
         return extractor;
       })();
     }
@@ -187,7 +190,9 @@
       setStatus('Thinking…');
       await ensureIndex();
       await ensureModel();
-      const out = await extractor(q, { pooling: 'mean', normalize: true });
+      // Prefix + pooling must match how the index was built (both read from the index).
+      const query = ((index && index.queryInstruction) || '') + q;
+      const out = await extractor(query, { pooling: (index && index.pooling) || 'mean', normalize: true });
       const v = Array.from(out.data) as number[];
       const scored = index.chunks
         .map((c: any) => ({ c, s: dot(v, c.vector) }))
