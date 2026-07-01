@@ -41,7 +41,7 @@ const experience = [
     <h2 id="projects-h">Selected work</h2>
     <div class="cards">
       {projects.map((p) => (
-        <a class="card" href={`/projects/${p.id}/`}>
+        <a class="card" href={`/work/${p.id}/`}>
           <h3>{p.data.title}</h3>
           {p.data.metrics[0] && (
             <p class="mono" style="color:var(--accent)">{p.data.metrics[0].value} · {p.data.metrics[0].label}</p>
@@ -50,9 +50,7 @@ const experience = [
         </a>
       ))}
     </div>
-    <p class="mono" style="color:var(--text-dim);font-size:0.85rem;margin-top:1rem">
-      More project deep-dives are being ported from the career database.
-    </p>
+    <p style="margin-top:1.25rem"><a href="/work/">View all work →</a></p>
   </section>
 
   <!-- EXPERIENCE -->

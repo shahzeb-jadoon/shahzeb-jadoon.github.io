@@ -14,7 +14,7 @@ const d = entry.data;
 <Base title={`${d.title} — Shahzeb Jadoon`} description={d.blurb}>
   <article>
     <p class="mono" style="color:var(--text-dim);margin-top:1.5rem">
-      <a href="/#projects">← Projects</a>
+      <a href="/work/">← Work</a>
     </p>
     <h1>{d.title}</h1>
     <p class="lead">{d.blurb}</p>
@@ -36,11 +36,13 @@ const d = entry.data;
       </ul>
     )}
 
-    <p>
-      {d.repo && <a href={d.repo}>Repository ↗</a>}
-      {d.repo && d.link && ' · '}
-      {d.link && <a href={d.link}>Live ↗</a>}
-    </p>
+    {(d.repo || d.link) && (
+      <p>
+        {d.repo && <a href={d.repo}>Repository ↗</a>}
+        {d.repo && d.link && ' · '}
+        {d.link && <a href={d.link}>Live ↗</a>}
+      </p>
+    )}
 
     <Content />
   </article>
