@@ -1,6 +1,6 @@
 ---
 title: VGG-16 CUDA Optimization
-blurb: Custom CUDA C++ kernels for VGG-16 inference on an RTX 3080, with Nsight Compute profiling that pins the FC layers as memory-bound.
+blurb: Custom CUDA C++ kernels for VGG-16 inference on an NVIDIA RTX GPU, with Nsight Compute profiling that pins the FC layers as memory-bound.
 period: Mar–May 2025
 org: RIT (High Performance Architectures, CMPE 755)
 role: 6-person team
@@ -13,7 +13,7 @@ tags: ["CUDA C++", "cuBLAS", "cuDNN", "Nsight Compute", "HPC"]
 repo: https://github.com/shahzeb-jadoon/VGG16_Optimization
 ---
 
-Optimized VGG-16 convolution and fully-connected layers for the RTX 3080 (CC 8.6) using custom CUDA kernels alongside cuDNN (conv) and cuBLAS (FC), then profiled with **NVIDIA Nsight Compute** to locate the true bottleneck.
+Optimized VGG-16 convolution and fully-connected layers for an NVIDIA RTX GPU (CC 8.6) using custom CUDA kernels alongside cuDNN (conv) and cuBLAS (FC), then profiled with **NVIDIA Nsight Compute** to locate the true bottleneck.
 
 <details open>
 <summary>Level 2 — Approach</summary>

@@ -7,7 +7,7 @@ role: Solo
 featured: true
 order: 1
 metrics:
-  - { value: "6.88 ms", label: "median inference (RTX 3080)" }
+  - { value: "6.88 ms", label: "median inference (NVIDIA RTX GPU)" }
   - { value: "13.4 M", label: "parameters / 51 MiB FP32" }
   - { value: "3.6 TB", label: "CARLA training corpus" }
 tags: ["RWKV", "PyTorch", "CARLA", "Edge AI", "Imitation Learning", "Neuromorphic"]
@@ -26,7 +26,7 @@ End-to-end imitation-learning prototype: 3-camera panoramic RGB (160×960) → p
 <details>
 <summary>Level 3 — Evidence & honest results</summary>
 
-- **13.43 M params**, 51.22 MiB FP32, **6.88 ms median latency**, 64.62 MiB peak CUDA memory on RTX 3080 — beats the proposal's stretch goals. Best open-loop steering MAE 0.054.
+- **13.43 M params**, 51.22 MiB FP32, **6.88 ms median latency**, 64.62 MiB peak CUDA memory on an NVIDIA RTX GPU — beats the proposal's stretch goals. Best open-loop steering MAE 0.054.
 - Defined a custom neuromorphic-sparsity proxy (**Accumulate-and-Fire efficiency, η_AF**) and reported it honestly as a **negative result**: the model is not yet sparse. Measuring and disclosing this is the point — a variance budget you bound before shipping.
 - Targeted edge/neuromorphic deployment: NVIDIA Jetson Orin Nano, BrainChip Akida; planned TensorRT INT8/FP16 + SNN conversion.
 - Professional repo: `pyproject`, GitHub Actions CI, pre-commit (black/flake8/mypy), **100+ pytest tests** with a coverage gate, XeLaTeX thesis.
