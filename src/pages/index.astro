@@ -86,6 +86,10 @@ const experience = [
     <h2 id="contact-h">Contact</h2>
     <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
       building AI that survives contact with real hardware.</p>
-    <p><a href={`mailto:${site.email}`}>{site.email}</a> · {site.location}</p>
+    <p>
+      <a href={`mailto:${site.email}`}>{site.email}</a> ·
+      <a href={`tel:${site.phoneE164}`}>{site.phone}</a> ·
+      {site.location}
+    </p>
   </section>
 </Base>

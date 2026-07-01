@@ -20,9 +20,11 @@ const canonical = new URL(Astro.url.pathname, site.url).href;
 const personLd = {
   '@type': 'Person',
   name: site.name,
+  alternateName: site.alternateName,
   jobTitle: site.role,
   description: site.tagline,
   email: `mailto:${site.email}`,
+  telephone: site.phoneE164,
   url: site.url,
   address: { '@type': 'PostalAddress', addressLocality: 'Rochester', addressRegion: 'NY', addressCountry: 'US' },
   sameAs: [site.github, site.linkedin],
