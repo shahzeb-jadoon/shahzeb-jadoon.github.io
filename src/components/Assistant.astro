@@ -192,16 +192,34 @@
       const scored = index.chunks
         .map((c: any) => ({ c, s: dot(v, c.vector) }))
         .sort((a: any, b: any) => b.s - a.s);
+
+      // Displayed cards: best-matching chunk per page (deduped by URL), max 4.
       const seen = new Set<string>();
-      const top: any[] = [];
+      const pages: any[] = [];
       for (const { c } of scored) {
         if (seen.has(c.url)) continue;
-        seen.add(c.url); top.push(c);
-        if (top.length >= 4) break;
+        seen.add(c.url); pages.push(c);
+        if (pages.length >= 4) break;
       }
-      render(top);
-      if (genEnabled && engine) await generate(q, top);
-      else answerWrap.hidden = true;
+      render(pages);
+
+      // Generative context: richer than the cards — up to 3 chunks per page, 8 total —
+      // so specific evidence (metrics, hardware) rides along with the topical intro
+      // instead of being dropped by per-page dedup.
+      if (genEnabled && engine) {
+        const perUrl: Record<string, number> = {};
+        const context: any[] = [];
+        for (const { c } of scored) {
+          const n = perUrl[c.url] || 0;
+          if (n >= 3) continue;
+          perUrl[c.url] = n + 1;
+          context.push(c);
+          if (context.length >= 8) break;
+        }
+        await generate(q, context);
+      } else {
+        answerWrap.hidden = true;
+      }
       setStatus('');
     } catch {
       setStatus('Couldn’t load the search just now — please try again.');
