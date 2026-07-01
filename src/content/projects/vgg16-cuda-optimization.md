@@ -10,6 +10,7 @@ metrics:
   - { value: "~41.5 GFLOPS", label: "FC layer @ batch=16 (~16.4× over batch=1)" }
   - { value: "CGMA ~2.0", label: "vs ~156.7 needed → FC memory-bound" }
 tags: ["CUDA C++", "cuBLAS", "cuDNN", "Nsight Compute", "HPC"]
+repo: https://github.com/shahzeb-jadoon/VGG16_Optimization
 ---
 
 Optimized VGG-16 convolution and fully-connected layers for the RTX 3080 (CC 8.6) using custom CUDA kernels alongside cuDNN (conv) and cuBLAS (FC), then profiled with **NVIDIA Nsight Compute** to locate the true bottleneck.
@@ -25,6 +26,6 @@ Built tiled and vectorized kernel variants (shared-memory tiling, memory coalesc
 <summary>Level 3 — Evidence</summary>
 
 - Roofline / CGMA analysis, per-batch GFLOPS curves, and Nsight Compute profiles.
-- *Repository is public; Nsight screenshots to be added as captioned evidence.*
+- *Captioned Nsight screenshots to be added as inline evidence.*
 
 </details>

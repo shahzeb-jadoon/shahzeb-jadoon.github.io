@@ -11,6 +11,7 @@ metrics:
   - { value: "GPT-4o · Gemini · Claude", label: "multi-provider LLM routing via LiteLLM" }
   - { value: "RBAC + CI", label: "async FastAPI, PostgreSQL, Cloudflare Zero Trust" }
 tags: ["FastAPI", "LiteLLM", "PostgreSQL", "Cloudflare Zero Trust", "Multi-Agent", "ROS2-ready"]
+repo: https://github.com/shahzeb-jadoon/rri_orchestrator
 link: https://rri.zylot.tech
 ---
 
