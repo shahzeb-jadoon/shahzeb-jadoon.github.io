@@ -11,7 +11,7 @@ const projects = (await getCollection('projects')).sort(
     <h1 id="work-h">Work</h1>
     <p class="lead">Selected projects across edge AI, hardware-software co-design, and
       autonomous systems. Each opens to a 3-level deep-dive: overview → approach → evidence.</p>
-    <div class="cards">
+    <div class="cards reveal">
       {projects.map((p) => (
         <a class="card" href={`/work/${p.id}/`}>
           <h3>{p.data.title}</h3>

@@ -147,3 +147,11 @@ footer { border-top: 1px solid var(--border); margin-top: 4rem; padding: 2rem 0;
 
 .lead { font-size: 1.15rem; color: var(--text-dim); max-width: 46rem; }
 section { scroll-margin-top: 4.5rem; }
+
+/* Scroll-reveal (§4.3) — only active when JS is on, so content is fully
+   visible to no-JS users and crawlers. Disabled under reduced-motion. */
+html.js .reveal { opacity: 0; transform: translateY(10px); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
+html.js .reveal.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  html.js .reveal { opacity: 1; transform: none; transition: none; }
+}

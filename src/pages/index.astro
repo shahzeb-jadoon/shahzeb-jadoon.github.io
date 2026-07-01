@@ -27,7 +27,7 @@ const projects = (await getCollection('projects')).sort(
   </section>
 
   <!-- PROJECTS (Level 1 cards) -->
-  <section id="projects" aria-labelledby="projects-h">
+  <section id="projects" class="reveal" aria-labelledby="projects-h">
     <h2 id="projects-h">Selected work</h2>
     <div class="cards">
       {projects.map((p) => (
@@ -44,7 +44,7 @@ const projects = (await getCollection('projects')).sort(
   </section>
 
   <!-- EXPERIENCE -->
-  <section id="experience" aria-labelledby="exp-h">
+  <section id="experience" class="reveal" aria-labelledby="exp-h">
     <h2 id="exp-h">Experience</h2>
     <ul class="timeline">
       {experience.map((e) => (
@@ -58,7 +58,7 @@ const projects = (await getCollection('projects')).sort(
   </section>
 
   <!-- WRITING -->
-  <section id="writing" aria-labelledby="writing-h">
+  <section id="writing" class="reveal" aria-labelledby="writing-h">
     <h2 id="writing-h">Writing</h2>
     <ul class="timeline">
       <li>
@@ -70,7 +70,7 @@ const projects = (await getCollection('projects')).sort(
   </section>
 
   <!-- CONTACT -->
-  <section id="contact" aria-labelledby="contact-h">
+  <section id="contact" class="reveal" aria-labelledby="contact-h">
     <h2 id="contact-h">Contact</h2>
     <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
       building AI that survives contact with real hardware.</p>

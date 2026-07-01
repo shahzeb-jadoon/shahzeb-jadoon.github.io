@@ -17,7 +17,7 @@ import { experience, education, skillGroups } from '../data/cv';
     </p>
 
     <h2>Experience</h2>
-    <ul class="timeline">
+    <ul class="timeline reveal">
       {experience.map((e) => (
         <li>
           <p class="role">{e.role} · <span style="color:var(--text-dim)">{e.org}</span></p>
@@ -28,7 +28,7 @@ import { experience, education, skillGroups } from '../data/cv';
     </ul>
 
     <h2>Education</h2>
-    <ul class="timeline">
+    <ul class="timeline reveal">
       {education.map((e) => (
         <li>
           <p class="role">{e.school}</p>
@@ -40,7 +40,7 @@ import { experience, education, skillGroups } from '../data/cv';
 
     <h2>Skills</h2>
     {skillGroups.map((g) => (
-      <div style="margin:0.75rem 0">
+      <div class="reveal" style="margin:0.75rem 0">
         <p class="mono" style="margin:0 0 0.35rem;color:var(--accent);font-size:0.85rem">{g.label}</p>
         <ul class="tags" aria-label={g.label}>
           {g.items.map((s) => <li>{s}</li>)}
