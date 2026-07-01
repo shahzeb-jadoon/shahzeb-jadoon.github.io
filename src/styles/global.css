@@ -1,31 +1,37 @@
-/* Technical minimalism — dark, contrast-safe (WCAG AA), monospace accents. */
+/* Architectural Glassmorphism, done honestly — dark-only, WCAG-AA contrast.
+   Palette aligned to the GitHub README (blue + violet) via a single --accent token. */
 :root {
-  --bg: #0b0d10;
-  --bg-elev: #14171c;
-  --border: #262b33;
-  --text: #e6e9ee;          /* ~13:1 on --bg */
-  --text-dim: #9aa4b2;      /* ~5.6:1 on --bg — stays AA */
-  --accent: #5ee0c0;        /* teal — used sparingly */
-  --accent-ink: #04120e;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  --maxw: 72rem;
-}
+  /* base */
+  --bg: #0b0e14;        /* page background (near-black navy) */
+  --bg-elev: #11151f;   /* elevated solid surface */
+  --border: #232a39;    /* hairline borders */
+  --text: #e6eaf2;      /* primary — ~13.5:1 on --bg (AAA) */
+  --text-dim: #aeb8c7;  /* secondary — ~7:1 on --bg (AA+) */
+  --text-mute: #7c8698; /* tertiary/labels — verify ≥ 4.5:1 in context */
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #ffffff;
-    --bg-elev: #f4f6f8;
-    --border: #d9dee5;
-    --text: #14171c;
-    --text-dim: #4c5663;
-    --accent: #0f9d82;
-    --accent-ink: #ffffff;
-  }
+  /* accents (blue primary, violet secondary; teal kept as a one-line fallback) */
+  --accent: #6aa1ff;
+  --accent-2: #9d7cd8;
+  --accent-ink: #06101f;   /* text on an accent-filled surface */
+
+  /* glass */
+  --glass-bg: rgba(255, 255, 255, 0.045);
+  --glass-bg-solid: #131826;                   /* fallback when backdrop-filter unsupported */
+  --glass-brd: rgba(255, 255, 255, 0.10);
+  --glass-hi: rgba(255, 255, 255, 0.14);       /* top hairline highlight */
+  --scrim: rgba(11, 14, 20, 0.55);             /* under-text opacity to guarantee contrast */
+  --shadow-glass: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--glass-hi);
+
+  /* type / radii / motion */
+  --mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --sans: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --maxw: 72rem;
+  --r-lg: 16px; --r-md: 12px; --r-sm: 8px;
+  --dur: 200ms; --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
@@ -44,6 +50,7 @@ body {
 .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.25rem; }
 
 a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { color: color-mix(in srgb, var(--accent) 80%, white); }
 a:focus-visible, button:focus-visible, summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -62,9 +69,30 @@ code, kbd, .mono { font-family: var(--mono); }
 }
 .skip-link:focus { left: 0; }
 
+/* --- Reusable glass surface (scrim guarantees AA text contrast over any bg) --- */
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+          backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-glass);
+}
+.glass::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--scrim); z-index: 0;
+}
+.glass > * { position: relative; z-index: 1; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-bg-solid); }
+  .glass::before { display: none; }
+}
+
 /* Nav */
-.nav { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(8px);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+.nav { position: sticky; top: 0; z-index: 50;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
   border-bottom: 1px solid var(--border); }
 .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 3.5rem; }
 .nav a { color: var(--text-dim); text-decoration: none; margin-left: 1.25rem; font-size: 0.92rem; }
@@ -73,23 +101,38 @@ code, kbd, .mono { font-family: var(--mono); }
 
 /* Metric chips + tags */
 .metrics { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0; padding: 0; list-style: none; }
-.metric { border: 1px solid var(--border); background: var(--bg-elev); border-radius: 8px; padding: 0.5rem 0.8rem; }
+.metric {
+  border: 1px solid var(--glass-brd);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-radius: 10px; padding: 0.5rem 0.8rem;
+}
 .metric b { font-family: var(--mono); color: var(--accent); display: block; font-size: 1.15rem; }
 .metric span { color: var(--text-dim); font-size: 0.8rem; }
 .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0; list-style: none; margin: 0.75rem 0; }
 .tags li { font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim);
   border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.6rem; }
 
-/* Project cards (Level 1) */
+/* Project cards (Level 1) — glass surfaces */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1rem; margin-top: 1.25rem; }
-.card { display: block; border: 1px solid var(--border); background: var(--bg-elev); border-radius: 10px;
-  padding: 1.1rem; text-decoration: none; color: inherit; transition: border-color 0.15s, transform 0.15s; }
+.card {
+  display: block; text-decoration: none; color: inherit;
+  border: 1px solid var(--glass-brd);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(120%); backdrop-filter: blur(14px) saturate(120%);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-glass);
+  padding: 1.1rem; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
 .card:hover { border-color: var(--accent); transform: translateY(-2px); }
 .card h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
 .card p { margin: 0.35rem 0 0; color: var(--text-dim); font-size: 0.9rem; }
 
 /* Disclosure (Level 2/3) */
-details { border: 1px solid var(--border); border-radius: 8px; padding: 0 1rem; margin: 0.75rem 0; background: var(--bg-elev); }
+details {
+  border: 1px solid var(--glass-brd); border-radius: var(--r-md); padding: 0 1rem; margin: 0.75rem 0;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
 details[open] { padding-bottom: 1rem; }
 summary { cursor: pointer; padding: 0.85rem 0; font-weight: 600; font-family: var(--mono); font-size: 0.92rem; }
 
