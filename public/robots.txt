@@ -1,0 +1,26 @@
+# Allow everyone, and explicitly welcome AI/LLM crawlers (they fetch raw HTML, run no JS).
+User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://shahzeb-jadoon.github.io/sitemap-index.xml

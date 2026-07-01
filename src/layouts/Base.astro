@@ -1,0 +1,85 @@
+---
+import '../styles/global.css';
+import { site, nav } from '../data/site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Set true only on the homepage so we emit the full ProfilePage/Person schema. */
+  profilePage?: boolean;
+}
+
+const {
+  title = `${site.name} — ${site.role}`,
+  description = site.tagline,
+  profilePage = false,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, site.url).href;
+
+const personLd = {
+  '@type': 'Person',
+  name: site.name,
+  jobTitle: site.role,
+  description: site.tagline,
+  email: `mailto:${site.email}`,
+  url: site.url,
+  address: { '@type': 'PostalAddress', addressLocality: 'Rochester', addressRegion: 'NY', addressCountry: 'US' },
+  sameAs: [site.github, site.linkedin],
+  knowsAbout: site.knowsAbout,
+  alumniOf: site.alumniOf.map((a) => ({ '@type': 'CollegeOrUniversity', name: a.name })),
+};
+
+const jsonLd = profilePage
+  ? { '@context': 'https://schema.org', '@type': 'ProfilePage', mainEntity: personLd }
+  : { '@context': 'https://schema.org', ...personLd };
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Entity graph for AI crawlers (server-rendered into initial HTML) -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <link rel="sitemap" href="/sitemap-index.xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="nav">
+      <div class="wrap">
+        <p class="brand"><a href="/" style="color:inherit;text-decoration:none">{site.name}</a></p>
+        <nav aria-label="Primary">
+          {nav.map((n) => <a href={n.href}>{n.label}</a>)}
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <slot />
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          © {new Date().getFullYear()} {site.name} ·
+          <a href={site.github}>GitHub</a> ·
+          <a href={site.linkedin}>LinkedIn</a> ·
+          <a href={`mailto:${site.email}`}>Email</a>
+        </p>
+        <p class="mono" style="font-size:0.8rem">Built with Astro · hosted on GitHub Pages · zero third-party backend.</p>
+      </div>
+    </footer>
+  </body>
+</html>

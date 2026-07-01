@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { site } from '../data/site';
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+
+const experience = [
+  { role: 'Machine Learning Engineer Intern', org: 'BrainChip', period: 'May–Sep 2025 · Remote',
+    note: 'End-to-end PyTorch→Akida pipeline for high-res semantic segmentation on Akida 2.0 neuromorphic silicon — ~82% of SOTA accuracy at 7.5% of the parameters. Hardware-aware model surgery; INT8 QAT; pioneered halo-tiling.' },
+  { role: 'Graduate Research Trainee, NSF AWARE-AI NRT', org: 'RIT', period: 'Apr 2025–May 2026 · Rochester, NY',
+    note: 'Monocular depth estimation as a low-cost LiDAR alternative; benchmarked MiDaS / Depth-Anything on abs-rel error and latency.' },
+  { role: 'Graduate Researcher, Social Robotics', org: 'RIT', period: 'Sep 2025–May 2026 · Rochester, NY',
+    note: 'Built the group’s production multi-agent robot-robot platform (rri_orchestrator): async FastAPI, LiteLLM, PostgreSQL, Cloudflare Zero Trust + RBAC.' },
+  { role: 'Teaching Assistant — GenAI, Real-Time Systems, Control Systems', org: 'RIT', period: '2025–2026 · Rochester, NY',
+    note: 'Developed the curriculum for RIT’s new Intro to Generative AI; mentored bare-metal/FreeRTOS firmware on STM32; HIL control on Quanser Qube-Servo2.' },
+];
+---
+<Base profilePage={true}>
+  <!-- HERO -->
+  <section aria-labelledby="hero-h" style="padding-top:3.5rem">
+    <h1 id="hero-h">{site.name}</h1>
+    <p class="lead" style="font-size:1.3rem;color:var(--text)">{site.role}</p>
+    <p class="lead">{site.tagline} The bottleneck in production AI isn’t model intelligence — it’s
+      forcing complex, non-deterministic networks to run flawlessly inside severe latency, memory,
+      and power budgets. I treat a model as a system with a variance budget to measure and bound
+      before it ships.</p>
+    <ul class="tags" aria-label="Focus areas" style="margin-top:1.25rem">
+      {site.knowsAbout.slice(0, 8).map((k) => <li>{k}</li>)}
+    </ul>
+    <p style="margin-top:1.25rem">
+      <a href={site.github}>GitHub ↗</a> · <a href={site.linkedin}>LinkedIn ↗</a> ·
+      <a href={`mailto:${site.email}`}>Email ↗</a>
+    </p>
+  </section>
+
+  <!-- PROJECTS (Level 1 cards) -->
+  <section id="projects" aria-labelledby="projects-h">
+    <h2 id="projects-h">Selected work</h2>
+    <div class="cards">
+      {projects.map((p) => (
+        <a class="card" href={`/projects/${p.id}/`}>
+          <h3>{p.data.title}</h3>
+          {p.data.metrics[0] && (
+            <p class="mono" style="color:var(--accent)">{p.data.metrics[0].value} · {p.data.metrics[0].label}</p>
+          )}
+          <p>{p.data.blurb}</p>
+        </a>
+      ))}
+    </div>
+    <p class="mono" style="color:var(--text-dim);font-size:0.85rem;margin-top:1rem">
+      More project deep-dives are being ported from the career database.
+    </p>
+  </section>
+
+  <!-- EXPERIENCE -->
+  <section id="experience" aria-labelledby="exp-h">
+    <h2 id="exp-h">Experience</h2>
+    <ul class="timeline">
+      {experience.map((e) => (
+        <li>
+          <p class="role">{e.role} · <span style="color:var(--text-dim)">{e.org}</span></p>
+          <p class="meta">{e.period}</p>
+          <p>{e.note}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <!-- WRITING -->
+  <section id="writing" aria-labelledby="writing-h">
+    <h2 id="writing-h">Writing</h2>
+    <ul class="timeline">
+      <li>
+        <p class="role">Model Surgery: Getting High-Resolution Segmentation onto Neuromorphic Silicon</p>
+        <p class="meta">Published · LinkedIn</p>
+        <p>How to strip hardware-incompatible operators and halo-tile full-resolution inference onto BrainChip Akida.</p>
+      </li>
+    </ul>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" aria-labelledby="contact-h">
+    <h2 id="contact-h">Contact</h2>
+    <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
+      building AI that survives contact with real hardware.</p>
+    <p><a href={`mailto:${site.email}`}>{site.email}</a> · {site.location}</p>
+  </section>
+</Base>

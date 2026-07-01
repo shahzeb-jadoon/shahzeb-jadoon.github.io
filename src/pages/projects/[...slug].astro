@@ -1,0 +1,47 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+  return projects.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const d = entry.data;
+---
+<Base title={`${d.title} — Shahzeb Jadoon`} description={d.blurb}>
+  <article>
+    <p class="mono" style="color:var(--text-dim);margin-top:1.5rem">
+      <a href="/#projects">← Projects</a>
+    </p>
+    <h1>{d.title}</h1>
+    <p class="lead">{d.blurb}</p>
+    <p class="meta mono" style="color:var(--text-dim);font-size:0.9rem">
+      {d.period}{d.org ? ` · ${d.org}` : ''}{d.role ? ` · ${d.role}` : ''}
+    </p>
+
+    {d.metrics.length > 0 && (
+      <ul class="metrics">
+        {d.metrics.map((m) => (
+          <li class="metric"><b>{m.value}</b><span>{m.label}</span></li>
+        ))}
+      </ul>
+    )}
+
+    {d.tags.length > 0 && (
+      <ul class="tags" aria-label="Technologies">
+        {d.tags.map((t) => <li>{t}</li>)}
+      </ul>
+    )}
+
+    <p>
+      {d.repo && <a href={d.repo}>Repository ↗</a>}
+      {d.repo && d.link && ' · '}
+      {d.link && <a href={d.link}>Live ↗</a>}
+    </p>
+
+    <Content />
+  </article>
+</Base>
