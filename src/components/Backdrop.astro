@@ -25,9 +25,10 @@ const { variant = 'neurons' } = Astro.props;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
     const variant = cv.dataset.variant || 'neurons';
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    // The veil blur hides fine detail anyway, so a lower DPR cap is free perf.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
     let W = 0, H = 0, last = 0, visible = true;
-    let nodes: { x: number; y: number; e?: number; vx?: number; vy?: number }[] = [];
+    let nodes: { x: number; y: number; e?: number; r?: number; vx?: number; vy?: number }[] = [];
 
     // Soft glow sprite (blitting beats per-dot shadowBlur).
     const glow = document.createElement('canvas');
@@ -45,10 +46,10 @@ const { variant = 'neurons' } = Astro.props;
         for (let i = 0; i < count; i++)
           nodes.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.25 * dpr, vy: (Math.random() - 0.5) * 0.25 * dpr });
       } else {
-        const gap = 30 * dpr;
+        const gap = 42 * dpr;
         for (let y = gap / 2; y < H; y += gap)
           for (let x = gap / 2; x < W; x += gap)
-            nodes.push({ x: x + (Math.random() - 0.5) * 8 * dpr, y: y + (Math.random() - 0.5) * 8 * dpr, e: Math.random() * 0.15 });
+            nodes.push({ x: x + (Math.random() - 0.5) * 10 * dpr, y: y + (Math.random() - 0.5) * 10 * dpr, e: 0, r: 0 });
       }
     };
     const resize = () => {
@@ -57,19 +58,32 @@ const { variant = 'neurons' } = Astro.props;
       H = cv.height = Math.max(1, Math.floor(r.height * dpr));
       build();
     };
-    const drawNeurons = () => {
+    // Sparse firing: a scheduler lights AT MOST `CAP` neurons at a time, one
+    // every ~1–2 s after an initial delay, each with a ~9 s refractory period.
+    // (The old per-node-per-frame probability lit hundreds of sparks a second.)
+    const CAP = 4;
+    let nextFire = performance.now() + 1400;
+    const drawNeurons = (t: number) => {
       ctx.clearRect(0, 0, W, H);
+      let active = 0;
+      for (const n of nodes) { if (n.e! > 0.04) active++; if (n.r! > 0) n.r! -= 1; }
+      if (t >= nextFire) {
+        nextFire = t + 900 + Math.random() * 1300;
+        if (active < CAP && nodes.length) {
+          const n = nodes[(Math.random() * nodes.length) | 0];
+          if (!n.r) { n.e = 1; n.r = 270; } // ~9 s refractory at 30 fps
+        }
+      }
       ctx.globalCompositeOperation = 'lighter';
       for (const n of nodes) {
-        if (Math.random() < 0.006) n.e = 1;
-        n.e = Math.max(0, (n.e || 0) - 0.02);
+        n.e = Math.max(0, (n.e || 0) - 0.008); // slow ~4 s fade
         if (n.e > 0.04) { const s = (6 + n.e * 26) * dpr; ctx.globalAlpha = 0.25 + 0.65 * n.e; ctx.drawImage(glow, n.x - s / 2, n.y - s / 2, s, s); }
       }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(174,184,199,0.10)';
       for (const n of nodes) ctx.fillRect(n.x, n.y, dpr, dpr);
     };
-    const drawNetwork = () => {
+    const drawNetwork = (_t: number) => {
       ctx.clearRect(0, 0, W, H);
       const link = 130 * dpr;
       for (const n of nodes) {
@@ -93,7 +107,7 @@ const { variant = 'neurons' } = Astro.props;
       requestAnimationFrame(loop);
       if (document.hidden || !visible) return;
       if (t - last < 33) return;
-      last = t; draw();
+      last = t; draw(t);
     };
 
     resize();
