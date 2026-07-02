@@ -9,26 +9,27 @@ const projects = (await getCollection('projects')).sort(
   (a, b) => a.data.order - b.data.order,
 );
 
-// The four things I actually work on (from the About) — glyphs give the page
-// GitHub-style character without pulling in an icon dependency.
+// The four things I actually work on (from the About). Icons are hand-drawn
+// inline SVG paths (24×24, stroke = currentColor) — consistent across every
+// OS, tinted by the accent token, and still zero icon dependencies.
 const pillars = [
   {
-    ico: '⚡',
+    ico: '<rect x="7" y="7" width="10" height="10" rx="2"/><rect x="10.3" y="10.3" width="3.4" height="3.4"/><path d="M9 7V4.2M12 7V4.2M15 7V4.2M9 19.8V17M12 19.8V17M15 19.8V17M7 9H4.2M7 12H4.2M7 15H4.2M19.8 9H17M19.8 12H17M19.8 15H17"/>',
     h: 'Edge AI & HW–SW Co-Design',
     p: 'INT8 QAT, model surgery, and pruning — mapping deep networks onto neuromorphic silicon and custom CUDA kernels.',
   },
   {
-    ico: '🛰',
+    ico: '<path d="M20.5 12a8.5 8.5 0 1 1-3-6.5"/><path d="M16.4 12a4.4 4.4 0 1 1-1.6-3.4"/><path d="M12 12l5.5-5.5"/><circle cx="18.2" cy="5.8" r="1.1"/>',
     h: 'Autonomous Systems & Vision',
     p: 'Imitation learning, sensor fusion, and 3.6 TB of CARLA data engineering for edge-deployable driving models.',
   },
   {
-    ico: '🤖',
+    ico: '<circle cx="12" cy="6.4" r="2.5"/><circle cx="5.8" cy="17.2" r="2.5"/><circle cx="18.2" cy="17.2" r="2.5"/><path d="M10.9 8.6l-3.7 6.4M13.1 8.6l3.7 6.4M8.3 17.2h7.4"/>',
     h: 'Production Multi-Agent LLMs',
     p: 'A live FastAPI + LiteLLM platform that decouples the LLM “brain” from ROS2-ready robot bodies.',
   },
   {
-    ico: '📐',
+    ico: '<path d="M3.5 19.5h17"/><path d="M4.5 19.5c3.8 0 3.3-11.5 7.5-11.5s3.7 11.5 7.5 11.5"/>',
     h: 'Quantitative Rigor',
     p: 'Multi-seed runs, paired t-tests, effect sizes — treating every model output as a variance budget to bound.',
   },
@@ -55,7 +56,10 @@ const pillars = [
       <div class="pillars">
         {pillars.map((p) => (
           <article class="pillar glass">
-            <div class="ico" aria-hidden="true">{p.ico}</div>
+            <div class="ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" set:html={p.ico} />
+            </div>
             <h3>{p.h}</h3>
             <p>{p.p}</p>
           </article>
