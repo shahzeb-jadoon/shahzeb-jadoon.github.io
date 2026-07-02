@@ -1,83 +1,172 @@
 ---
 import Base from '../layouts/Base.astro';
+import Backdrop from '../components/Backdrop.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../data/site';
-import { experience } from '../data/cv';
+import { experience, skillGroups } from '../data/cv';
 
 const projects = (await getCollection('projects')).sort(
   (a, b) => a.data.order - b.data.order,
 );
+
+// The four things I actually work on (from the About) — glyphs give the page
+// GitHub-style character without pulling in an icon dependency.
+const pillars = [
+  {
+    ico: '⚡',
+    h: 'Edge AI & HW–SW Co-Design',
+    p: 'INT8 QAT, model surgery, and pruning — mapping deep networks onto neuromorphic silicon and custom CUDA kernels.',
+  },
+  {
+    ico: '🛰',
+    h: 'Autonomous Systems & Vision',
+    p: 'Imitation learning, sensor fusion, and 3.6 TB of CARLA data engineering for edge-deployable driving models.',
+  },
+  {
+    ico: '🤖',
+    h: 'Production Multi-Agent LLMs',
+    p: 'A live FastAPI + LiteLLM platform that decouples the LLM “brain” from ROS2-ready robot bodies.',
+  },
+  {
+    ico: '📐',
+    h: 'Quantitative Rigor',
+    p: 'Multi-seed runs, paired t-tests, effect sizes — treating every model output as a variance budget to bound.',
+  },
+];
 ---
-<Base profilePage={true}>
-  <!-- HERO -->
-  <section aria-labelledby="hero-h" style="padding-top:3.5rem">
-    <h1 id="hero-h">{site.name}</h1>
-    <p class="lead" style="font-size:1.3rem;color:var(--text)">{site.role}</p>
-    <p class="lead">{site.tagline} The bottleneck in production AI isn’t model intelligence — it’s
-      forcing complex, non-deterministic networks to run flawlessly inside severe latency, memory,
-      and power budgets. I treat a model as a system with a variance budget to measure and bound
-      before it ships.</p>
-    <ul class="tags" aria-label="Focus areas" style="margin-top:1.25rem">
-      {site.knowsAbout.slice(0, 8).map((k) => <li>{k}</li>)}
-    </ul>
-    <p style="margin-top:1.25rem">
-      <a href={site.github}>GitHub ↗</a> · <a href={site.linkedin}>LinkedIn ↗</a> ·
-      <a href={`mailto:${site.email}`}>Email ↗</a>
-    </p>
+<Base profilePage={true} home={true}>
+  <!-- HERO — name, quote, title, and a living backdrop; everything else waits for the scroll -->
+  <section class="screen has-bg" aria-labelledby="hero-h">
+    <Backdrop variant="neurons" />
+    <div class="screen-inner">
+      <p class="hero-eyebrow">Edge&nbsp;AI · Hardware–Software&nbsp;Co-Design · Autonomous&nbsp;Systems</p>
+      <h1 id="hero-h" class="hero-name">{site.name}</h1>
+      <p class="hero-quote">{site.quote}</p>
+      <p class="hero-role">{site.role}</p>
+    </div>
+    <a class="scroll-cue" href="#field" aria-label="Scroll to content">↓</a>
   </section>
 
-  <!-- PROJECTS (Level 1 cards) -->
-  <section id="projects" class="reveal" aria-labelledby="projects-h">
-    <h2 id="projects-h">Selected work</h2>
-    <div class="cards">
-      {projects.map((p) => (
-        <a class="card" href={`/work/${p.id}/`}>
-          <h3>{p.data.title}</h3>
-          {p.data.metrics[0] && (
-            <p class="mono" style="color:var(--accent)">{p.data.metrics[0].value} · {p.data.metrics[0].label}</p>
-          )}
-          <p>{p.data.blurb}</p>
-        </a>
-      ))}
+  <!-- FIELD — what I work on -->
+  <section id="field" class="band has-bg reveal" aria-labelledby="field-h">
+    <Backdrop variant="network" />
+    <div class="band-inner">
+      <h2 id="field-h">What I work on</h2>
+      <div class="pillars">
+        {pillars.map((p) => (
+          <article class="pillar glass">
+            <div class="ico" aria-hidden="true">{p.ico}</div>
+            <h3>{p.h}</h3>
+            <p>{p.p}</p>
+          </article>
+        ))}
+      </div>
     </div>
-    <p style="margin-top:1.25rem"><a href="/work/">View all work →</a></p>
+  </section>
+
+  <!-- SELECTED WORK -->
+  <section id="projects" class="band has-bg reveal" aria-labelledby="projects-h">
+    <Backdrop variant="neurons" />
+    <div class="band-inner">
+      <h2 id="projects-h">Selected work</h2>
+      <div class="cards">
+        {projects.map((p) => (
+          <a class="card" href={`/work/${p.id}/`}>
+            <h3>{p.data.title}</h3>
+            {p.data.metrics[0] && (
+              <p class="mono" style="color:var(--accent)">{p.data.metrics[0].value} · {p.data.metrics[0].label}</p>
+            )}
+            <p>{p.data.blurb}</p>
+          </a>
+        ))}
+      </div>
+      <p style="margin-top:1.5rem"><a href="/work/">View all work →</a></p>
+    </div>
+  </section>
+
+  <!-- SKILLS -->
+  <section id="skills" class="band has-bg reveal" aria-labelledby="skills-h">
+    <Backdrop variant="network" />
+    <div class="band-inner">
+      <h2 id="skills-h">Skills</h2>
+      <div class="skill-groups">
+        {skillGroups.map((g) => (
+          <article class="skill-group glass">
+            <h3>{g.label}</h3>
+            <ul class="tags">
+              {g.items.map((i) => <li>{i}</li>)}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </div>
   </section>
 
   <!-- EXPERIENCE -->
-  <section id="experience" class="reveal" aria-labelledby="exp-h">
-    <h2 id="exp-h">Experience</h2>
-    <ul class="timeline">
-      {experience.map((e) => (
-        <li>
-          <p class="role">{e.role} · <span style="color:var(--text-dim)">{e.org}</span></p>
-          <p class="meta">{e.period}</p>
-          <p>{e.note}</p>
-        </li>
-      ))}
-    </ul>
+  <section id="experience" class="band has-bg reveal" aria-labelledby="exp-h">
+    <Backdrop variant="neurons" />
+    <div class="band-inner">
+      <h2 id="exp-h">Experience</h2>
+      <ul class="timeline">
+        {experience.map((e) => (
+          <li>
+            <p class="role">{e.role} · <span style="color:var(--text-dim)">{e.org}</span></p>
+            <p class="meta">{e.period}</p>
+            <p>{e.note}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   </section>
 
   <!-- WRITING -->
-  <section id="writing" class="reveal" aria-labelledby="writing-h">
-    <h2 id="writing-h">Writing</h2>
-    <ul class="timeline">
-      <li>
-        <p class="role">Model Surgery: Getting High-Resolution Segmentation onto Neuromorphic Silicon</p>
-        <p class="meta">Published · LinkedIn</p>
-        <p>How to strip hardware-incompatible operators and halo-tile full-resolution inference onto BrainChip Akida.</p>
-      </li>
-    </ul>
+  <section id="writing" class="band has-bg reveal" aria-labelledby="writing-h">
+    <Backdrop variant="network" />
+    <div class="band-inner">
+      <h2 id="writing-h">Writing</h2>
+      <ul class="timeline">
+        <li>
+          <p class="role"><a href="/writing/">Model Surgery: Getting High-Resolution Segmentation onto Neuromorphic Silicon</a></p>
+          <p class="meta">Published · LinkedIn</p>
+          <p>How to strip hardware-incompatible operators and halo-tile full-resolution inference onto BrainChip Akida.</p>
+        </li>
+      </ul>
+    </div>
   </section>
 
-  <!-- CONTACT -->
-  <section id="contact" class="reveal" aria-labelledby="contact-h">
-    <h2 id="contact-h">Contact</h2>
-    <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
-      building AI that survives contact with real hardware.</p>
-    <p>
-      <a href={`mailto:${site.email}`}>{site.email}</a> ·
-      <a href={`tel:${site.phoneE164}`}>{site.phone}</a> ·
-      {site.location}
-    </p>
+  <!-- CONTACT — cards with real logos -->
+  <section id="contact" class="band has-bg reveal" aria-labelledby="contact-h">
+    <Backdrop variant="neurons" />
+    <div class="band-inner">
+      <h2 id="contact-h">Contact</h2>
+      <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
+        building AI that survives contact with real hardware. Based in {site.location}.</p>
+      <div class="contact-grid">
+        <a class="contact-card glass" href={`mailto:${site.email}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6.5l9 6.5 9-6.5"/>
+          </svg>
+          <span class="cc-body"><b>Email</b><span>{site.email}</span></span>
+        </a>
+        <a class="contact-card glass" href={site.linkedin}>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.8 0 0 .77 0 1.72v20.56C0 23.23.8 24 1.77 24h20.45C23.2 24 24 23.23 24 22.28V1.72C24 .77 23.2 0 22.22 0z"/>
+          </svg>
+          <span class="cc-body"><b>LinkedIn</b><span>in/shahzeb-jadoon</span></span>
+        </a>
+        <a class="contact-card glass" href={site.github}>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.09 3.29 9.4 7.86 10.93.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.7 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/>
+          </svg>
+          <span class="cc-body"><b>GitHub</b><span>@shahzeb-jadoon</span></span>
+        </a>
+        <a class="contact-card glass" href={`tel:${site.phoneE164}`}>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M6.6 10.8c1.45 2.84 3.76 5.15 6.6 6.6l2.2-2.2c.3-.3.7-.38 1.05-.24 1.12.37 2.33.57 3.55.57.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.22.2 2.43.57 3.55.14.35.06.75-.24 1.05l-2.23 2.2z"/>
+          </svg>
+          <span class="cc-body"><b>Phone</b><span>{site.phone}</span></span>
+        </a>
+      </div>
+    </div>
   </section>
 </Base>

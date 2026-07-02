@@ -1,0 +1,105 @@
+---
+// Decorative animated section background (§5). One <canvas> per section; the
+// shared script sets up every .backdrop on the page by its data-variant.
+// Gated to capable desktops, DPR/FPS-capped, paused off-screen and tab-hidden,
+// off under reduced-motion. Purely decorative (aria-hidden); sections read fine
+// with these removed (each section also has a static .has-bg poster gradient).
+interface Props { variant?: 'neurons' | 'network' }
+const { variant = 'neurons' } = Astro.props;
+---
+<canvas class="backdrop" data-variant={variant} aria-hidden="true"></canvas>
+
+<script>
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const desktop = window.matchMedia('(min-width: 1024px)').matches;
+  const capable = (navigator.hardwareConcurrency || 4) >= 4;
+
+  const TEAL = '94,224,192';
+  const GREEN = '52,211,153';
+
+  if (!reduce && desktop && capable) {
+    document.querySelectorAll('canvas.backdrop').forEach((el) => setup(el as HTMLCanvasElement));
+  }
+
+  function setup(cv: HTMLCanvasElement) {
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const variant = cv.dataset.variant || 'neurons';
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    let W = 0, H = 0, last = 0, visible = true;
+    let nodes: { x: number; y: number; e?: number; vx?: number; vy?: number }[] = [];
+
+    // Soft glow sprite (blitting beats per-dot shadowBlur).
+    const glow = document.createElement('canvas');
+    const GS = 48; glow.width = glow.height = GS;
+    const gc = glow.getContext('2d')!;
+    const col = variant === 'network' ? GREEN : TEAL;
+    const grad = gc.createRadialGradient(GS / 2, GS / 2, 0, GS / 2, GS / 2, GS / 2);
+    grad.addColorStop(0, `rgba(${col},0.9)`); grad.addColorStop(0.4, `rgba(${col},0.32)`); grad.addColorStop(1, `rgba(${col},0)`);
+    gc.fillStyle = grad; gc.fillRect(0, 0, GS, GS);
+
+    const build = () => {
+      nodes = [];
+      if (variant === 'network') {
+        const count = Math.round((W * H) / (26000 * dpr * dpr));
+        for (let i = 0; i < count; i++)
+          nodes.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - 0.5) * 0.25 * dpr, vy: (Math.random() - 0.5) * 0.25 * dpr });
+      } else {
+        const gap = 30 * dpr;
+        for (let y = gap / 2; y < H; y += gap)
+          for (let x = gap / 2; x < W; x += gap)
+            nodes.push({ x: x + (Math.random() - 0.5) * 8 * dpr, y: y + (Math.random() - 0.5) * 8 * dpr, e: Math.random() * 0.15 });
+      }
+    };
+    const resize = () => {
+      const r = cv.getBoundingClientRect();
+      W = cv.width = Math.max(1, Math.floor(r.width * dpr));
+      H = cv.height = Math.max(1, Math.floor(r.height * dpr));
+      build();
+    };
+    const drawNeurons = () => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const n of nodes) {
+        if (Math.random() < 0.006) n.e = 1;
+        n.e = Math.max(0, (n.e || 0) - 0.02);
+        if (n.e > 0.04) { const s = (6 + n.e * 26) * dpr; ctx.globalAlpha = 0.25 + 0.65 * n.e; ctx.drawImage(glow, n.x - s / 2, n.y - s / 2, s, s); }
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(174,184,199,0.10)';
+      for (const n of nodes) ctx.fillRect(n.x, n.y, dpr, dpr);
+    };
+    const drawNetwork = () => {
+      ctx.clearRect(0, 0, W, H);
+      const link = 130 * dpr;
+      for (const n of nodes) {
+        n.x += n.vx!; n.y += n.vy!;
+        if (n.x < 0 || n.x > W) n.vx! *= -1;
+        if (n.y < 0 || n.y > H) n.vy! *= -1;
+      }
+      ctx.lineWidth = dpr;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d < link) { ctx.strokeStyle = `rgba(${GREEN},${0.16 * (1 - d / link)})`; ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke(); }
+        }
+      }
+      ctx.fillStyle = `rgba(${GREEN},0.55)`;
+      for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, 1.6 * dpr, 0, 7); ctx.fill(); }
+    };
+    const draw = variant === 'network' ? drawNetwork : drawNeurons;
+    const loop = (t: number) => {
+      requestAnimationFrame(loop);
+      if (document.hidden || !visible) return;
+      if (t - last < 33) return;
+      last = t; draw();
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    new IntersectionObserver((es) => { visible = es[0].isIntersecting; }, { threshold: 0 }).observe(cv);
+    cv.classList.add('on');
+    requestAnimationFrame(loop);
+  }
+</script>
