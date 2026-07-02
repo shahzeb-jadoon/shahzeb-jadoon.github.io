@@ -37,7 +37,7 @@ const fm = (raw, key) => {
   return m ? m[1].replace(/^["']|["']$/g, '').trim() : '';
 };
 
-const chunkWords = (text, size = 70, overlap = 15) => {
+const chunkWords = (text, size = 120, overlap = 20) => {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length <= size) return text.trim() ? [text.trim()] : [];
   const out = [];
@@ -99,7 +99,8 @@ async function main() {
   const extract = await pipeline('feature-extraction', MODEL);
   for (const ch of chunks) {
     // Passages are embedded without the query instruction (asymmetric retrieval).
-    const out = await extract(ch.text, { pooling: POOLING, normalize: true });
+    const embedText = `${ch.title}: ${ch.text}`;
+    const out = await extract(embedText, { pooling: POOLING, normalize: true });
     ch.vector = Array.from(out.data, round);
   }
   const payload = {
