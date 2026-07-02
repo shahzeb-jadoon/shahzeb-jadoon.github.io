@@ -118,17 +118,23 @@ const jsonLd = profilePage
 
       // Home only: the nav hides over the hero and reveals once you scroll past
       // it, when the pointer nears the top edge, or when a key user tabs into it.
+      // One derived state with hysteresis: scroll position is the base signal and
+      // the pointer/keyboard can "pin" the bar open; the pin releases only well
+      // below the top edge, so a stray 1px scroll can't fight the pointer and
+      // flicker the bar (the old show()/sync() pair raced on every scroll event).
       const homeNav = document.querySelector('.nav--home');
       if (homeNav) {
-        const show = () => homeNav.classList.add('nav--shown');
-        const sync = () => {
-          if (window.scrollY > window.innerHeight * 0.6) show();
-          else homeNav.classList.remove('nav--shown');
-        };
-        window.addEventListener('scroll', sync, { passive: true });
-        window.addEventListener('mousemove', (e) => { if (e.clientY < 64) show(); }, { passive: true });
-        homeNav.addEventListener('focusin', show);
-        sync();
+        let pinned = false;
+        const apply = () =>
+          homeNav.classList.toggle('nav--shown', pinned || window.scrollY > window.innerHeight * 0.6);
+        window.addEventListener('scroll', apply, { passive: true });
+        window.addEventListener('mousemove', (e) => {
+          if (e.clientY < 72 && !pinned) { pinned = true; apply(); }
+          else if (e.clientY > 200 && pinned) { pinned = false; apply(); }
+        }, { passive: true });
+        homeNav.addEventListener('focusin', () => { pinned = true; apply(); });
+        homeNav.addEventListener('focusout', () => { pinned = false; apply(); });
+        apply();
       }
     </script>
   </body>
