@@ -20,4 +20,20 @@ const projects = defineCollection({
   }),
 });
 
-export const collections = { projects };
+// Long-form writing. Body is Markdown; the article page renders title/description
+// from frontmatter and emits BlogPosting JSON-LD.
+const posts = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/posts' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    pubDate: z.coerce.date(),
+    tags: z.array(z.string()).default([]),
+    cover: z.string().optional(), // optimized in-article cover (WebP) in /public
+    coverAlt: z.string().optional(),
+    ogImage: z.string().optional(), // 1200×630 JPEG for social/link previews
+    alsoOn: z.string().url().optional(), // canonical elsewhere (e.g. LinkedIn cross-post)
+  }),
+});
+
+export const collections = { projects, posts };

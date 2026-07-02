@@ -1,0 +1,47 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { site } from '../../data/site';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const d = entry.data;
+const canonical = new URL(`/writing/${entry.id}/`, site.url).href;
+const dateStr = d.pubDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+
+const blogLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: d.title,
+  description: d.description,
+  datePublished: d.pubDate.toISOString().slice(0, 10),
+  author: { '@type': 'Person', name: site.name, url: site.url },
+  publisher: { '@type': 'Person', name: site.name },
+  keywords: d.tags.join(', '),
+  mainEntityOfPage: canonical,
+};
+---
+<Base title={`${d.title} — Shahzeb Jadoon`} description={d.description} image={d.ogImage || d.cover}>
+  <script type="application/ld+json" set:html={JSON.stringify(blogLd)} />
+  <article>
+    <p class="mono" style="color:var(--text-dim);margin-top:1.5rem"><a href="/writing/">← Writing</a></p>
+    <h1>{d.title}</h1>
+    <p class="lead">{d.description}</p>
+    <p class="meta mono" style="color:var(--text-dim);font-size:0.9rem">
+      {dateStr}{d.alsoOn && <> · <a href={d.alsoOn}>Also on LinkedIn ↗</a></>}
+    </p>
+    {d.tags.length > 0 && (
+      <ul class="tags" aria-label="Topics">{d.tags.map((t) => <li>{t}</li>)}</ul>
+    )}
+    {d.cover && (
+      <img class="post-cover" src={d.cover} alt={d.coverAlt ?? ''} width="1200" height="553"
+           loading="eager" decoding="async" />
+    )}
+    <div class="prose"><Content /></div>
+  </article>
+</Base>

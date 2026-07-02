@@ -8,15 +8,19 @@ interface Props {
   description?: string;
   /** Set true only on the homepage so we emit the full ProfilePage/Person schema. */
   profilePage?: boolean;
+  /** Absolute-or-root-relative path to a social preview image (og:image). */
+  image?: string;
 }
 
 const {
   title = `${site.name} — ${site.role}`,
   description = site.tagline,
   profilePage = false,
+  image,
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, site.url).href;
+const ogImage = image ? new URL(image, site.url).href : undefined;
 
 const personLd = {
   '@type': 'Person',
@@ -51,7 +55,9 @@ const jsonLd = profilePage
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
     <meta name="twitter:card" content="summary_large_image" />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
 
     <!-- Entity graph for AI crawlers (server-rendered into initial HTML) -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

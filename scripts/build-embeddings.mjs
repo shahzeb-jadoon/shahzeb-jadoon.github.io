@@ -1,7 +1,7 @@
 // Build-time embeddings for the in-browser assistant (§16.3).
-// Chunks the site's own content and embeds each chunk with MiniLM (transformers.js)
-// into public/embeddings.json. The browser later embeds the visitor's question with
-// the same model and cosine-matches against these vectors — no server, no API.
+// Chunks the site's own content and embeds each chunk with a compact sentence model
+// (transformers.js) into public/embeddings.json. The browser later embeds the visitor's
+// question with the same model and cosine-matches against these vectors — no server, no API.
 //
 // Run:  npm run embeddings   (re-run after editing project/profile/llms content)
 import { pipeline } from '@xenova/transformers';
@@ -76,6 +76,22 @@ async function gather() {
       text: stripMd(`${fm(raw, 'title')}. ${fm(raw, 'blurb')}. ${metricsText} ${tagsText} ${body}`),
     });
   }
+
+  // Writing (articles)
+  try {
+    const pdir = P('src/content/posts');
+    for (const f of (await readdir(pdir)).filter((f) => f.endsWith('.md'))) {
+      const slug = f.replace(/\.md$/, '');
+      const raw = await readFile(path.join(pdir, f), 'utf8');
+      const close = raw.indexOf('---', 3);
+      const body = close >= 0 ? raw.slice(close + 3) : raw;
+      docs.push({
+        title: fm(raw, 'title') || slug,
+        url: `/writing/${slug}/`,
+        text: stripMd(`${fm(raw, 'title')}. ${fm(raw, 'description')}. ${body}`),
+      });
+    }
+  } catch {}
 
   // Identity / skills
   const profile = JSON.parse(await readFile(P('src/data/profile.json'), 'utf8'));

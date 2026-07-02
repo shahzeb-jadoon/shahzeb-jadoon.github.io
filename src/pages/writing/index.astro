@@ -1,33 +1,23 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
 
-// Interim: the BrainChip article is published on LinkedIn; the canonical on-site
-// copy is being adapted from the draft and will replace this entry before launch.
-const articles = [
-  {
-    title: 'Model Surgery: Getting High-Resolution Segmentation onto Neuromorphic Silicon',
-    status: 'Published on LinkedIn',
-    date: '2025',
-    abstract:
-      'How to strip hardware-incompatible operators (batch-norm, transposed convolutions), run INT8 quantization-aware training, and halo-tile full-resolution inference to map a MobileNet-backbone UNet onto BrainChip Akida.',
-  },
-];
+const posts = (await getCollection('posts')).sort(
+  (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime(),
+);
 ---
 <Base title="Writing — Shahzeb Jadoon" description="Technical write-ups on edge AI, quantization, and neuromorphic deployment.">
   <section aria-labelledby="writing-h" style="padding-top:2.5rem">
     <h1 id="writing-h">Writing</h1>
     <p class="lead">Technical write-ups on getting models onto constrained hardware.</p>
     <ul class="timeline reveal">
-      {articles.map((a) => (
+      {posts.map((p) => (
         <li>
-          <p class="role">{a.title}</p>
-          <p class="meta">{a.date} · {a.status}</p>
-          <p>{a.abstract}</p>
+          <p class="role"><a href={`/writing/${p.id}/`}>{p.data.title}</a></p>
+          <p class="meta">{p.data.pubDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' })}</p>
+          <p>{p.data.description}</p>
         </li>
       ))}
     </ul>
-    <p class="mono" style="color:var(--text-mute);font-size:0.85rem">
-      Canonical on-site copies of these articles are in progress.
-    </p>
   </section>
 </Base>
