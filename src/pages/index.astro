@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import Backdrop from '../components/Backdrop.astro';
+import Journey from '../components/Journey.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../data/site';
 import { experience, skillGroups } from '../data/cv';
@@ -8,6 +8,7 @@ import { experience, skillGroups } from '../data/cv';
 const projects = (await getCollection('projects')).sort(
   (a, b) => a.data.order - b.data.order,
 );
+const bySlug = Object.fromEntries(projects.map((p) => [p.id, p]));
 
 // The four things I actually work on (from the About). Icons are hand-drawn
 // inline SVG paths (24×24, stroke = currentColor) — consistent across every
@@ -17,28 +18,35 @@ const pillars = [
     ico: '<rect x="7" y="7" width="10" height="10" rx="2"/><rect x="10.3" y="10.3" width="3.4" height="3.4"/><path d="M9 7V4.2M12 7V4.2M15 7V4.2M9 19.8V17M12 19.8V17M15 19.8V17M7 9H4.2M7 12H4.2M7 15H4.2M19.8 9H17M19.8 12H17M19.8 15H17"/>',
     h: 'Edge AI & HW–SW Co-Design',
     p: 'INT8 QAT, model surgery, and pruning — mapping deep networks onto neuromorphic silicon and custom CUDA kernels.',
+    slug: 'brainchip-akida-segmentation',
   },
   {
     ico: '<path d="M20.5 12a8.5 8.5 0 1 1-3-6.5"/><path d="M16.4 12a4.4 4.4 0 1 1-1.6-3.4"/><path d="M12 12l5.5-5.5"/><circle cx="18.2" cy="5.8" r="1.1"/>',
     h: 'Autonomous Systems & Vision',
     p: 'Imitation learning, sensor fusion, and 3.6 TB of CARLA data engineering for edge-deployable driving models.',
+    slug: 'neuromorphic-vision-rwkv',
   },
   {
     ico: '<circle cx="12" cy="6.4" r="2.5"/><circle cx="5.8" cy="17.2" r="2.5"/><circle cx="18.2" cy="17.2" r="2.5"/><path d="M10.9 8.6l-3.7 6.4M13.1 8.6l3.7 6.4M8.3 17.2h7.4"/>',
     h: 'Production Multi-Agent LLMs',
     p: 'A live FastAPI + LiteLLM platform that decouples the LLM “brain” from ROS2-ready robot bodies.',
+    slug: 'rri-orchestrator',
   },
   {
     ico: '<path d="M3.5 19.5h17"/><path d="M4.5 19.5c3.8 0 3.3-11.5 7.5-11.5s3.7 11.5 7.5 11.5"/>',
     h: 'Quantitative Rigor',
     p: 'Multi-seed runs, paired t-tests, effect sizes — treating every model output as a variance budget to bound.',
+    slug: 'quantum-policy-gradient',
   },
 ];
 ---
 <Base profilePage={true} home={true}>
-  <!-- HERO — name, quote, title, and a living backdrop; everything else waits for the scroll -->
-  <section class="screen has-bg" aria-labelledby="hero-h">
-    <Backdrop variant="neurons" />
+  <!-- One fixed canvas drives the whole page: circuit → board → chip → brain
+       → neurons → star — each section is a stop on the zoom. -->
+  <Journey />
+
+  <!-- HERO — name, quote, title over the circuit; everything else waits for the scroll -->
+  <section id="hero" class="screen has-bg" aria-labelledby="hero-h">
     <div class="screen-inner">
       <p class="hero-eyebrow">Edge&nbsp;AI · Hardware–Software&nbsp;Co-Design · Autonomous&nbsp;Systems</p>
       <h1 id="hero-h" class="hero-name">{site.name}</h1>
@@ -48,29 +56,34 @@ const pillars = [
     <a class="scroll-cue" href="#field" aria-label="Scroll to content">↓</a>
   </section>
 
-  <!-- FIELD — what I work on -->
+  <!-- FIELD — what I work on (2×2 over the board scene) -->
   <section id="field" class="band has-bg reveal" aria-labelledby="field-h">
-    <Backdrop variant="network" />
     <div class="band-inner">
       <h2 id="field-h">What I work on</h2>
-      <div class="pillars">
-        {pillars.map((p) => (
-          <article class="pillar glass">
-            <div class="ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                stroke-linecap="round" stroke-linejoin="round" set:html={p.ico} />
-            </div>
-            <h3>{p.h}</h3>
-            <p>{p.p}</p>
-          </article>
-        ))}
+      <div class="pillars pillars--duo">
+        {pillars.map((p) => {
+          const proj = bySlug[p.slug];
+          return (
+            <article class="pillar glass">
+              <div class="ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round" set:html={p.ico} />
+              </div>
+              <h3>{p.h}</h3>
+              <p>{p.p}</p>
+              {proj?.data.metrics[0] && (
+                <p class="pillar-proof">{proj.data.metrics[0].value} · {proj.data.metrics[0].label}</p>
+              )}
+              {proj && <a class="pillar-link" href={`/work/${proj.id}/`}>See the work →</a>}
+            </article>
+          );
+        })}
       </div>
     </div>
   </section>
 
   <!-- SELECTED WORK -->
   <section id="projects" class="band has-bg reveal" aria-labelledby="projects-h">
-    <Backdrop variant="neurons" />
     <div class="band-inner">
       <h2 id="projects-h">Selected work</h2>
       <div class="cards">
@@ -90,7 +103,6 @@ const pillars = [
 
   <!-- SKILLS -->
   <section id="skills" class="band has-bg reveal" aria-labelledby="skills-h">
-    <Backdrop variant="network" />
     <div class="band-inner">
       <h2 id="skills-h">Skills</h2>
       <div class="skill-groups">
@@ -108,7 +120,6 @@ const pillars = [
 
   <!-- EXPERIENCE -->
   <section id="experience" class="band has-bg reveal" aria-labelledby="exp-h">
-    <Backdrop variant="neurons" />
     <div class="band-inner">
       <h2 id="exp-h">Experience</h2>
       <ul class="timeline">
@@ -125,7 +136,6 @@ const pillars = [
 
   <!-- WRITING -->
   <section id="writing" class="band has-bg reveal" aria-labelledby="writing-h">
-    <Backdrop variant="network" />
     <div class="band-inner">
       <h2 id="writing-h">Writing</h2>
       <ul class="timeline">
@@ -138,10 +148,10 @@ const pillars = [
     </div>
   </section>
 
-  <!-- CONTACT — cards with real logos -->
+  <!-- CONTACT — cards with real logos, under the starfield -->
   <section id="contact" class="band has-bg reveal" aria-labelledby="contact-h">
-    <Backdrop variant="neurons" />
-    <div class="band-inner">
+    <div class="band-inner contact-wrap">
+      <div>
       <h2 id="contact-h">Contact</h2>
       <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
         building AI that survives contact with real hardware. Based in {site.location}.</p>
@@ -170,6 +180,45 @@ const pillars = [
           </svg>
           <span class="cc-body"><b>Phone</b><span>{site.phone}</span></span>
         </a>
+      </div>
+      </div>
+
+      <!-- Avatar under the stars: working on the laptop, back to the viewer;
+           on hover the second pose crossfades in (looking back over the
+           shoulder). These inline line-art SVGs are PLACEHOLDERS sized and
+           wired for the real generated artwork. To replace: export two images
+           with the SAME camera, scale, and framing —
+             /public/avatar/pose-away.webp   (working, facing away)
+             /public/avatar/pose-look.webp   (hand down, turned, looking back)
+           ~1200×1200, transparent background, dark-theme palette — then swap
+           the <svg>s for <img class="pose pose-away|pose-look" …> tags. For a
+           fluid multi-frame turn later, a short Lottie/sprite sequence slots
+           into the same .avatar container. -->
+      <div class="avatar" aria-hidden="true">
+        <svg class="pose pose-away" viewBox="0 0 200 200" fill="none" stroke="currentColor"
+          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M34 162h132" opacity=".3" />
+          <circle cx="100" cy="74" r="15" />
+          <path d="M84 96c-9 4-15 12-17 24l-4 30" />
+          <path d="M116 96c9 4 15 12 17 24l4 30" />
+          <path d="M84 96h32l6 44H78z" />
+          <path d="M64 150l16-20h40l16 20z" opacity=".85" />
+          <path d="M80 130h40" opacity=".85" />
+          <path d="M70 158c4-8 12-12 30-12s26 4 30 12" />
+        </svg>
+        <svg class="pose pose-look" viewBox="0 0 200 200" fill="none" stroke="currentColor"
+          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M34 162h132" opacity=".3" />
+          <circle cx="106" cy="72" r="15" />
+          <path d="M117 68a2.2 2.2 0 1 1-.1 0" fill="currentColor" stroke="none" />
+          <path d="M120 78c2 1 4 1 6 0" />
+          <path d="M84 96c-9 4-15 12-17 24l-4 30" />
+          <path d="M116 98c9 5 14 13 16 24l4 28" />
+          <path d="M84 96h32l6 44H78z" />
+          <path d="M64 150l16-20h40l16 20z" opacity=".85" />
+          <path d="M80 130h40" opacity=".85" />
+          <path d="M70 158c4-8 12-12 30-12s26 4 30 12" />
+        </svg>
       </div>
     </div>
   </section>
