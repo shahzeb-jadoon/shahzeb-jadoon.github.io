@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
-import Journey from '../components/Journey.astro';
+import Journey3D from '../components/Journey3D.astro';
+import Avatar3D from '../components/Avatar3D.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../data/site';
 import { experience, skillGroups } from '../data/cv';
@@ -41,9 +42,10 @@ const pillars = [
 ];
 ---
 <Base profilePage={true} home={true}>
-  <!-- One fixed canvas drives the whole page: circuit → board → chip → brain
-       → neurons → star — each section is a stop on the zoom. -->
-  <Journey />
+  <!-- One fixed 3D canvas drives the whole page: suspended circuit wiring →
+       hovering PCB (CPU/GPU/NPU/MCU/RAM) → chip die → brain → deep neuron
+       field → starfield — each section is a stop for the camera dolly. -->
+  <Journey3D />
 
   <!-- HERO — name, quote, title over the circuit; everything else waits for the scroll -->
   <section id="hero" class="screen has-bg" aria-labelledby="hero-h">
@@ -183,42 +185,12 @@ const pillars = [
       </div>
       </div>
 
-      <!-- Avatar under the stars: working on the laptop, back to the viewer;
-           on hover the second pose crossfades in (looking back over the
-           shoulder). These inline line-art SVGs are PLACEHOLDERS sized and
-           wired for the real generated artwork. To replace: export two images
-           with the SAME camera, scale, and framing —
-             /public/avatar/pose-away.webp   (working, facing away)
-             /public/avatar/pose-look.webp   (hand down, turned, looking back)
-           ~1200×1200, transparent background, dark-theme palette — then swap
-           the <svg>s for <img class="pose pose-away|pose-look" …> tags. For a
-           fluid multi-frame turn later, a short Lottie/sprite sequence slots
-           into the same .avatar container. -->
+      <!-- 3D avatar under the stars: a wireframe-hologram figure typing on a
+           laptop, back to the viewer; hovering it makes the hand drop, the
+           torso twist, and the head turn to look at you — a fluid 3D
+           interpolation, not an image swap. -->
       <div class="avatar" aria-hidden="true">
-        <svg class="pose pose-away" viewBox="0 0 200 200" fill="none" stroke="currentColor"
-          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M34 162h132" opacity=".3" />
-          <circle cx="100" cy="74" r="15" />
-          <path d="M84 96c-9 4-15 12-17 24l-4 30" />
-          <path d="M116 96c9 4 15 12 17 24l4 30" />
-          <path d="M84 96h32l6 44H78z" />
-          <path d="M64 150l16-20h40l16 20z" opacity=".85" />
-          <path d="M80 130h40" opacity=".85" />
-          <path d="M70 158c4-8 12-12 30-12s26 4 30 12" />
-        </svg>
-        <svg class="pose pose-look" viewBox="0 0 200 200" fill="none" stroke="currentColor"
-          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M34 162h132" opacity=".3" />
-          <circle cx="106" cy="72" r="15" />
-          <path d="M117 68a2.2 2.2 0 1 1-.1 0" fill="currentColor" stroke="none" />
-          <path d="M120 78c2 1 4 1 6 0" />
-          <path d="M84 96c-9 4-15 12-17 24l-4 30" />
-          <path d="M116 98c9 5 14 13 16 24l4 28" />
-          <path d="M84 96h32l6 44H78z" />
-          <path d="M64 150l16-20h40l16 20z" opacity=".85" />
-          <path d="M80 130h40" opacity=".85" />
-          <path d="M70 158c4-8 12-12 30-12s26 4 30 12" />
-        </svg>
+        <Avatar3D />
       </div>
     </div>
   </section>
