@@ -1,0 +1,528 @@
+---
+// v3 of the scroll journey: TRUE 3D. One fixed, veiled canvas renders
+// wireframe-hologram objects suspended in space — real 3D coordinates, a
+// perspective camera that dollies forward as you scroll, depth attenuation,
+// slow self-rotation, and a subtle pointer parallax so every scene reads as
+// floating *in* the screen, not painted on it.
+//
+//   hero        circuit wiring suspended in air (3D manhattan traces + current)
+//   field       PCB hovering at an angle — CPU / GPU / NPU / MCU / RAM as
+//               extruded packages standing on the board
+//   projects    one package up close: pins + a "compute city" die, lit in waves
+//   skills      a rotating 3D brain point-cloud with synapse flashes
+//   experience  neurons scattered through a deep volume (they recede INTO the
+//               screen), firing sparsely
+//   writing     the last neuron becomes the first star
+//   contact     a twinkling 3D starfield (the 3D avatar lives in the section)
+//
+// Everything is procedural geometry (a few hundred points/edges per scene) —
+// no model files, no textures, no frame buffers: memory stays flat and the
+// added payload is ~0. Gating per the §5.2 contract: desktop-only,
+// reduced-motion off, DPR ≤ 1.25, ~30 fps cap, hidden-tab pause; the .has-bg
+// posters remain the fallback. Purely decorative (aria-hidden).
+---
+<canvas class="journey" id="journey3d" aria-hidden="true"></canvas>
+
+<script>
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const desktop = window.matchMedia('(min-width: 1024px)').matches;
+  const capable = (navigator.hardwareConcurrency || 4) >= 4;
+  const cv = document.getElementById('journey3d') as HTMLCanvasElement | null;
+
+  if (cv && !reduce && desktop && capable) setup(cv);
+
+  function setup(cv: HTMLCanvasElement) {
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const TEAL = '94,224,192', GREEN = '52,211,153', STAR = '214,226,255';
+    let W = 0, H = 0, U = 0, FL = 0, S = 0, D = 0, last = 0;
+
+    // soft glow sprite
+    const glow = document.createElement('canvas');
+    const GS = 48; glow.width = glow.height = GS;
+    const gc = glow.getContext('2d')!;
+    const gr = gc.createRadialGradient(GS / 2, GS / 2, 0, GS / 2, GS / 2, GS / 2);
+    gr.addColorStop(0, `rgba(${TEAL},0.9)`); gr.addColorStop(0.4, `rgba(${TEAL},0.32)`); gr.addColorStop(1, `rgba(${TEAL},0)`);
+    gc.fillStyle = gr; gc.fillRect(0, 0, GS, GS);
+
+    // ---- camera: scroll drives z, pointer adds parallax -------------------
+    const ids = ['hero', 'field', 'projects', 'skills', 'experience', 'writing', 'contact'];
+    let centers: number[] = [];
+    const measure = () => {
+      centers = ids.map((id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        const r = el.getBoundingClientRect();
+        return r.top + window.scrollY + r.height / 2;
+      });
+    };
+    const P = () => {
+      const sc = window.scrollY + window.innerHeight / 2;
+      if (sc <= centers[0]) return 0;
+      for (let i = 0; i < centers.length - 1; i++)
+        if (sc < centers[i + 1]) return i + (sc - centers[i]) / (centers[i + 1] - centers[i]);
+      return centers.length - 1;
+    };
+    let mx = 0, my = 0, emx = 0, emy = 0; // pointer target / eased
+    window.addEventListener('mousemove', (e) => {
+      mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      my = (e.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    let camX = 0, camY = 0, camZ = 0;
+    type V = { x: number; y: number; z: number };
+    const pr = { x: 0, y: 0, s: 0, ok: false };
+    const project = (x: number, y: number, z: number) => {
+      const dz = z - camZ;
+      if (dz < 0.12 * U) { pr.ok = false; return pr; }
+      const s = FL / dz;
+      pr.x = W / 2 + (x - camX) * s;
+      pr.y = H / 2 + (y - camY) * s;
+      pr.s = s; pr.ok = true;
+      return pr;
+    };
+    // scene-local transform: rotY(a) → rotX(b) → *scale → +(0, bob, k·S)
+    const tf = (p: V, sy: number, cy: number, sx: number, cx: number, sc: number, bob: number, zk: number, out: V) => {
+      const x1 = p.x * cy + p.z * sy;
+      const z1 = -p.x * sy + p.z * cy;
+      const y1 = p.y * cx - z1 * sx;
+      const z2 = p.y * sx + z1 * cx;
+      out.x = x1 * sc; out.y = y1 * sc + bob; out.z = z2 * sc + zk;
+      return out;
+    };
+    const A: V = { x: 0, y: 0, z: 0 }, B: V = { x: 0, y: 0, z: 0 };
+
+    // edge list helpers -----------------------------------------------------
+    type Edge = [V, V];
+    const box = (cx: number, cy: number, cz: number, w: number, h: number, d: number): Edge[] => {
+      const xs = [cx - w / 2, cx + w / 2], ys = [cy - h, cy], zs = [cz - d / 2, cz + d / 2];
+      const v = (i: number, j: number, k: number): V => ({ x: xs[i], y: ys[j], z: zs[k] });
+      return [
+        [v(0,0,0),v(1,0,0)],[v(1,0,0),v(1,0,1)],[v(1,0,1),v(0,0,1)],[v(0,0,1),v(0,0,0)],
+        [v(0,1,0),v(1,1,0)],[v(1,1,0),v(1,1,1)],[v(1,1,1),v(0,1,1)],[v(0,1,1),v(0,1,0)],
+        [v(0,0,0),v(0,1,0)],[v(1,0,0),v(1,1,0)],[v(1,0,1),v(1,1,1)],[v(0,0,1),v(0,1,1)],
+      ];
+    };
+    const ring = (cx: number, cy: number, cz: number, r: number, n = 20): Edge[] => {
+      const es: Edge[] = [];
+      for (let i = 0; i < n; i++) {
+        const a1 = (i / n) * 6.2832, a2 = ((i + 1) / n) * 6.2832;
+        es.push([
+          { x: cx + Math.cos(a1) * r, y: cy, z: cz + Math.sin(a1) * r },
+          { x: cx + Math.cos(a2) * r, y: cy, z: cz + Math.sin(a2) * r },
+        ]);
+      }
+      return es;
+    };
+
+    const strokeEdges = (edges: Edge[], sy: number, cy: number, sx: number, cx: number, sc: number, bob: number, zk: number, style: string, lw: number) => {
+      ctx.strokeStyle = style; ctx.lineWidth = lw;
+      ctx.beginPath();
+      for (const [a, b] of edges) {
+        tf(a, sy, cy, sx, cx, sc, bob, zk, A);
+        tf(b, sy, cy, sx, cx, sc, bob, zk, B);
+        const p1 = project(A.x, A.y, A.z); if (!p1.ok) continue;
+        const x1 = p1.x, y1 = p1.y;
+        const p2 = project(B.x, B.y, B.z); if (!p2.ok) continue;
+        ctx.moveTo(x1, y1); ctx.lineTo(p2.x, p2.y);
+      }
+      ctx.stroke();
+    };
+
+    // ---- scene geometry ----------------------------------------------------
+    // 0 · circuit: 3D manhattan wiring with travelling current
+    let traces: { pts: V[]; segs: number[]; len: number; speed: number; off: number }[] = [];
+    const buildCircuit = () => {
+      traces = [];
+      for (let i = 0; i < 14; i++) {
+        const pts: V[] = [{ x: (Math.random() - 0.5) * 0.5 * U, y: (Math.random() - 0.5) * 0.4 * U, z: (Math.random() - 0.5) * 0.5 * U }];
+        for (let s = 0, n = 4 + (Math.random() * 3 | 0); s < n; s++) {
+          const p = pts[pts.length - 1];
+          const axis = (Math.random() * 3) | 0;
+          const step = (0.09 + Math.random() * 0.24) * U * (Math.random() < 0.5 ? -1 : 1);
+          pts.push({ x: p.x + (axis === 0 ? step : 0), y: p.y + (axis === 1 ? step : 0), z: p.z + (axis === 2 ? step : 0) });
+        }
+        const segs: number[] = []; let len = 0;
+        for (let s = 1; s < pts.length; s++) {
+          const a = pts[s - 1], b = pts[s];
+          len += Math.abs(b.x - a.x) + Math.abs(b.y - a.y) + Math.abs(b.z - a.z);
+          segs.push(len);
+        }
+        traces.push({ pts, segs, len, speed: 0.35 + Math.random() * 0.5, off: Math.random() });
+      }
+    };
+    const traceAt = (tr: (typeof traces)[0], u: number, out: V) => {
+      const d = u * tr.len;
+      let i = 0;
+      while (i < tr.segs.length - 1 && tr.segs[i] < d) i++;
+      const prev = i === 0 ? 0 : tr.segs[i - 1];
+      const f = (d - prev) / (tr.segs[i] - prev || 1);
+      const a = tr.pts[i], b = tr.pts[i + 1];
+      out.x = a.x + (b.x - a.x) * f; out.y = a.y + (b.y - a.y) * f; out.z = a.z + (b.z - a.z) * f;
+      return out;
+    };
+
+    // 1 · board: PCB plane + packages (built once per resize)
+    let boardEdges: Edge[] = [], boardTraces: typeof traces = [];
+    const buildBoard = () => {
+      boardEdges = [];
+      const bw = 0.66 * U, bd = 0.46 * U;
+      // board outline + inner margin (y=0 plane, up = −y)
+      for (const m of [1, 0.94]) {
+        const w = bw * m, d = bd * m;
+        const c: V[] = [
+          { x: -w, y: 0, z: -d }, { x: w, y: 0, z: -d }, { x: w, y: 0, z: d }, { x: -w, y: 0, z: d },
+        ];
+        for (let i = 0; i < 4; i++) boardEdges.push([c[i], c[(i + 1) % 4]]);
+      }
+      // packages: CPU · GPU (fan ring) · NPU (grid) · MCU (pins) · 2× RAM
+      boardEdges.push(...box(-0.24 * U, 0, -0.12 * U, 0.2 * U, 0.045 * U, 0.2 * U));   // CPU
+      boardEdges.push(...box(-0.24 * U, -0.045 * U, -0.12 * U, 0.11 * U, 0.004 * U, 0.11 * U)); // CPU die cap
+      boardEdges.push(...box(0.2 * U, 0, -0.14 * U, 0.34 * U, 0.04 * U, 0.17 * U));    // GPU
+      boardEdges.push(...ring(0.2 * U, -0.042 * U, -0.14 * U, 0.055 * U, 16));          // GPU fan
+      boardEdges.push(...box(-0.03 * U, 0, 0.2 * U, 0.16 * U, 0.04 * U, 0.16 * U));    // NPU
+      for (let i = 1; i <= 2; i++) { // NPU die grid
+        const q = -0.08 * U + (0.16 * U * i) / 3;
+        boardEdges.push([{ x: -0.03 * U + q + 0.0 * U - 0.0 * U, y: -0.041 * U, z: 0.12 * U }, { x: -0.03 * U + q, y: -0.041 * U, z: 0.28 * U }]);
+        boardEdges.push([{ x: -0.11 * U, y: -0.041 * U, z: 0.12 * U + (0.16 * U * i) / 3 }, { x: 0.05 * U, y: -0.041 * U, z: 0.12 * U + (0.16 * U * i) / 3 }]);
+      }
+      boardEdges.push(...box(0.36 * U, 0, 0.18 * U, 0.09 * U, 0.028 * U, 0.09 * U));   // MCU
+      for (let i = 0; i < 4; i++) { // MCU pins
+        const q = 0.325 * U + (0.07 * U * i) / 3;
+        boardEdges.push([{ x: q, y: 0, z: 0.132 * U }, { x: q, y: 0, z: 0.115 * U }]);
+        boardEdges.push([{ x: q, y: 0, z: 0.228 * U }, { x: q, y: 0, z: 0.245 * U }]);
+      }
+      boardEdges.push(...box(-0.52 * U, 0, 0.1 * U, 0.04 * U, 0.1 * U, 0.26 * U));     // RAM
+      boardEdges.push(...box(-0.45 * U, 0, 0.1 * U, 0.04 * U, 0.1 * U, 0.26 * U));     // RAM
+      // flat manhattan traces on the plane, with current
+      boardTraces = [];
+      for (let i = 0; i < 7; i++) {
+        const pts: V[] = [{ x: (Math.random() - 0.5) * 1.1 * U, y: 0, z: (Math.random() - 0.5) * 0.75 * U }];
+        for (let s = 0, n = 3 + (Math.random() * 3 | 0); s < n; s++) {
+          const p = pts[pts.length - 1];
+          const step = (0.07 + Math.random() * 0.16) * U * (Math.random() < 0.5 ? -1 : 1);
+          pts.push(Math.random() < 0.5 ? { x: p.x + step, y: 0, z: p.z } : { x: p.x, y: 0, z: p.z + step });
+        }
+        const segs: number[] = []; let len = 0;
+        for (let s = 1; s < pts.length; s++) {
+          const a = pts[s - 1], b = pts[s];
+          len += Math.abs(b.x - a.x) + Math.abs(b.z - a.z);
+          segs.push(len);
+        }
+        boardTraces.push({ pts, segs, len, speed: 0.3 + Math.random() * 0.4, off: Math.random() });
+      }
+    };
+
+    // 2 · chip: package + pins + "compute city" die cells
+    let chipEdges: Edge[] = [];
+    let cells: { x: number; z: number; h: number }[] = [];
+    const buildChip = () => {
+      chipEdges = [];
+      const w = 0.72 * U;
+      chipEdges.push(...box(0, 0, 0, w, 0.05 * U, w));
+      for (let i = 0; i < 12; i++) { // pins on 4 sides, angling down/out
+        const q = -w / 2 + (w * (i + 0.5)) / 12;
+        for (const [px, pz, dx, dz] of [[q, -w / 2, 0, -1], [q, w / 2, 0, 1], [-w / 2, q, -1, 0], [w / 2, q, 1, 0]] as number[][]) {
+          chipEdges.push([{ x: px, y: 0, z: pz }, { x: px + dx * 0.045 * U, y: 0.03 * U, z: pz + dz * 0.045 * U }]);
+        }
+      }
+      cells = [];
+      const n = 8, cw = (0.52 * U) / n;
+      for (let ix = 0; ix < n; ix++)
+        for (let iz = 0; iz < n; iz++)
+          cells.push({ x: -0.26 * U + cw * (ix + 0.5), z: -0.26 * U + cw * (iz + 0.5), h: (0.02 + Math.random() * 0.05) * U });
+    };
+
+    // 3 · brain: two-lobe 3D point cloud + links
+    let brainPts: (V & { ph: number })[] = [];
+    let brainLinks: [number, number][] = [];
+    let flashes: { l: [number, number]; e: number }[] = [];
+    const buildBrain = () => {
+      brainPts = []; brainLinks = []; flashes = [];
+      const inBrain = (x: number, y: number, z: number) => {
+        if (Math.abs(x) < 0.012 * U && y < 0.1 * U) return false; // longitudinal fissure
+        const e1 = (x / (0.4 * U)) ** 2 + (y / (0.27 * U)) ** 2 + (z / (0.3 * U)) ** 2 <= 1;
+        const e2 = ((x) / (0.16 * U)) ** 2 + ((y - 0.2 * U) / (0.09 * U)) ** 2 + ((z + 0.14 * U) / (0.13 * U)) ** 2 <= 1;
+        return e1 || e2;
+      };
+      let guard = 0;
+      while (brainPts.length < 330 && guard++ < 20000) {
+        const x = (Math.random() - 0.5) * 0.85 * U, y = (Math.random() - 0.5) * 0.62 * U, z = (Math.random() - 0.5) * 0.68 * U;
+        if (inBrain(x, y, z)) brainPts.push({ x, y, z, ph: Math.random() * 7 });
+      }
+      for (let i = 0; i < brainPts.length && brainLinks.length < 400; i++)
+        for (let j = i + 1; j < brainPts.length; j++) {
+          const a = brainPts[i], b = brainPts[j];
+          const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+          if (dx * dx + dy * dy + dz * dz < (0.07 * U) ** 2) brainLinks.push([i, j]);
+        }
+    };
+
+    // 4 · neurons: deep 3D volume, sparse firing
+    let neurons: (V & { e: number; r: number })[] = [];
+    let neuronLinks: [number, number][] = [];
+    const buildNeurons = () => {
+      neurons = []; neuronLinks = [];
+      for (let i = 0; i < 110; i++)
+        neurons.push({
+          x: (Math.random() - 0.5) * 1.5 * U, y: (Math.random() - 0.5) * 1.05 * U,
+          z: (Math.random() - 0.5) * 1.6 * U, e: 0, r: 0,
+        });
+      for (let i = 0; i < neurons.length && neuronLinks.length < 260; i++)
+        for (let j = i + 1; j < neurons.length; j++) {
+          const a = neurons[i], b = neurons[j];
+          const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+          if (dx * dx + dy * dy + dz * dz < (0.24 * U) ** 2) neuronLinks.push([i, j]);
+        }
+    };
+
+    // 5/6 · stars: 3D field shared by star-birth and starfield
+    let stars: (V & { ph: number; s: number })[] = [];
+    const buildStars = () => {
+      stars = [];
+      for (let i = 0; i < 150; i++)
+        stars.push({
+          x: (Math.random() - 0.5) * 2.4 * U, y: (Math.random() - 0.5) * 1.7 * U,
+          z: (Math.random() - 0.5) * 2.2 * U, ph: Math.random() * 7, s: 0.7 + Math.random(),
+        });
+    };
+
+    // ---- scene draw functions ---------------------------------------------
+    // each receives (t, alpha, zk, shrink) and must respect alpha
+    const drawCircuit = (t: number, al: number, zk: number, shrink: number) => {
+      const sy = Math.sin(t * 0.00012), cy = Math.cos(t * 0.00012);
+      const sx = Math.sin(0.16), cx = Math.cos(0.16);
+      const bob = Math.sin(t * 0.0006) * 0.012 * U;
+      ctx.globalAlpha = al;
+      for (const tr of traces) {
+        ctx.strokeStyle = `rgba(${TEAL},0.3)`; ctx.lineWidth = 1.2 * dpr;
+        ctx.beginPath();
+        let started = false;
+        for (const p of tr.pts) {
+          tf(p, sy, cy, sx, cx, shrink, bob, zk, A);
+          const q = project(A.x, A.y, A.z);
+          if (!q.ok) { started = false; continue; }
+          if (started) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); started = true; }
+        }
+        ctx.stroke();
+        const end = tr.pts[tr.pts.length - 1];
+        tf(end, sy, cy, sx, cx, shrink, bob, zk, A);
+        let q = project(A.x, A.y, A.z);
+        if (q.ok) { ctx.fillStyle = `rgba(${TEAL},0.4)`; ctx.beginPath(); ctx.arc(q.x, q.y, 2.4 * q.s / (FL / (1.6 * U)) + dpr, 0, 7); ctx.fill(); }
+        traceAt(tr, (t * 0.00003 * tr.speed + tr.off) % 1, B);
+        tf(B, sy, cy, sx, cx, shrink, bob, zk, A);
+        q = project(A.x, A.y, A.z);
+        if (q.ok) { const s = 16 * dpr * (q.s / (FL / (1.6 * U))); ctx.drawImage(glow, q.x - s / 2, q.y - s / 2, s, s); }
+      }
+      ctx.globalAlpha = 1;
+    };
+    const drawBoard = (t: number, al: number, zk: number) => {
+      const sy = Math.sin(t * 0.00009) * 0.35, cy = Math.cos(Math.sin(t * 0.00009) * 0.35);
+      const syv = Math.sin(Math.sin(t * 0.00009) * 0.35);
+      const sx = Math.sin(-0.52), cx = Math.cos(-0.52);
+      const bob = Math.sin(t * 0.0005) * 0.014 * U;
+      ctx.globalAlpha = al;
+      strokeEdges(boardEdges, syv, cy, sx, cx, 1, bob, zk, `rgba(${TEAL},0.38)`, 1.2 * dpr);
+      for (const tr of boardTraces) {
+        ctx.strokeStyle = `rgba(${GREEN},0.2)`; ctx.lineWidth = dpr;
+        ctx.beginPath();
+        let started = false;
+        for (const p of tr.pts) {
+          tf(p, syv, cy, sx, cx, 1, bob, zk, A);
+          const q = project(A.x, A.y, A.z);
+          if (!q.ok) { started = false; continue; }
+          if (started) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); started = true; }
+        }
+        ctx.stroke();
+        traceAt(tr, (t * 0.00004 * tr.speed + tr.off) % 1, B);
+        tf(B, syv, cy, sx, cx, 1, bob, zk, A);
+        const q = project(A.x, A.y, A.z);
+        if (q.ok) { const s = 12 * dpr; ctx.drawImage(glow, q.x - s / 2, q.y - s / 2, s, s); }
+      }
+      ctx.globalAlpha = 1;
+    };
+    const drawChip = (t: number, al: number, zk: number) => {
+      const ang = Math.sin(t * 0.0001) * 0.3;
+      const syv = Math.sin(ang), cy = Math.cos(ang);
+      const sx = Math.sin(-0.5), cx = Math.cos(-0.5);
+      const bob = Math.sin(t * 0.00055) * 0.012 * U;
+      ctx.globalAlpha = al;
+      strokeEdges(chipEdges, syv, cy, sx, cx, 1, bob, zk, `rgba(${TEAL},0.4)`, 1.2 * dpr);
+      // compute city: each cell is a pillar; activity waves ripple across
+      for (const c of cells) {
+        const wave = Math.max(0, Math.sin(t * 0.0007 + (c.x + c.z) * (14 / U)));
+        const b = 0.10 + 0.28 * wave * wave;
+        const p1 = { x: c.x, y: 0, z: c.z }, p2 = { x: c.x, y: -c.h, z: c.z };
+        tf(p1, syv, cy, sx, cx, 1, bob, zk, A);
+        const q1 = project(A.x, A.y, A.z); if (!q1.ok) continue;
+        const x1 = q1.x, y1 = q1.y;
+        tf(p2, syv, cy, sx, cx, 1, bob, zk, B);
+        const q2 = project(B.x, B.y, B.z); if (!q2.ok) continue;
+        ctx.strokeStyle = `rgba(${TEAL},${b.toFixed(3)})`; ctx.lineWidth = 2.2 * dpr;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(q2.x, q2.y); ctx.stroke();
+        if (wave > 0.93) { const s = 10 * dpr; ctx.drawImage(glow, q2.x - s / 2, q2.y - s / 2, s, s); }
+      }
+      ctx.globalAlpha = 1;
+    };
+    let nextFlash = 0;
+    const drawBrain = (t: number, al: number, zk: number) => {
+      const ang = t * 0.00016; // continuous slow rotation
+      const syv = Math.sin(ang), cy = Math.cos(ang);
+      const sx = Math.sin(0.12), cx = Math.cos(0.12);
+      const bob = Math.sin(t * 0.0005) * 0.012 * U;
+      ctx.globalAlpha = al;
+      ctx.strokeStyle = `rgba(${TEAL},0.08)`; ctx.lineWidth = dpr;
+      ctx.beginPath();
+      for (const [i, j] of brainLinks) {
+        tf(brainPts[i], syv, cy, sx, cx, 1, bob, zk, A);
+        const q1 = project(A.x, A.y, A.z); if (!q1.ok) continue;
+        const x1 = q1.x, y1 = q1.y;
+        tf(brainPts[j], syv, cy, sx, cx, 1, bob, zk, B);
+        const q2 = project(B.x, B.y, B.z); if (!q2.ok) continue;
+        ctx.moveTo(x1, y1); ctx.lineTo(q2.x, q2.y);
+      }
+      ctx.stroke();
+      for (const p of brainPts) {
+        tf(p, syv, cy, sx, cx, 1, bob, zk, A);
+        const q = project(A.x, A.y, A.z); if (!q.ok) continue;
+        const depth = Math.min(1, Math.max(0.25, q.s / (FL / (1.6 * U))));
+        const b = (0.28 + 0.2 * Math.sin(t * 0.001 + p.ph)) * depth;
+        ctx.fillStyle = `rgba(${TEAL},${b.toFixed(2)})`;
+        const r = 1.6 * dpr * depth;
+        ctx.fillRect(q.x - r / 2, q.y - r / 2, r, r);
+      }
+      if (t >= nextFlash && brainLinks.length) {
+        nextFlash = t + 700 + Math.random() * 900;
+        if (flashes.length < 3) flashes.push({ l: brainLinks[(Math.random() * brainLinks.length) | 0], e: 1 });
+      }
+      for (const f of flashes) {
+        f.e -= 0.02;
+        if (f.e <= 0) continue;
+        const [i, j] = f.l;
+        tf(brainPts[i], syv, cy, sx, cx, 1, bob, zk, A);
+        const q1 = project(A.x, A.y, A.z); if (!q1.ok) continue;
+        const x1 = q1.x, y1 = q1.y;
+        tf(brainPts[j], syv, cy, sx, cx, 1, bob, zk, B);
+        const q2 = project(B.x, B.y, B.z); if (!q2.ok) continue;
+        ctx.strokeStyle = `rgba(${GREEN},${(0.7 * f.e).toFixed(2)})`; ctx.lineWidth = 1.8 * dpr;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(q2.x, q2.y); ctx.stroke();
+      }
+      flashes = flashes.filter((f) => f.e > 0);
+      ctx.globalAlpha = 1;
+    };
+    let nextFire = 0;
+    const drawNeurons = (t: number, al: number, zk: number) => {
+      const ang = Math.sin(t * 0.00008) * 0.1;
+      const syv = Math.sin(ang), cy = Math.cos(ang);
+      const sx = 0, cx = 1;
+      ctx.globalAlpha = al;
+      ctx.strokeStyle = `rgba(${TEAL},0.05)`; ctx.lineWidth = dpr;
+      ctx.beginPath();
+      for (const [i, j] of neuronLinks) {
+        tf(neurons[i], syv, cy, sx, cx, 1, 0, zk, A);
+        const q1 = project(A.x, A.y, A.z); if (!q1.ok) continue;
+        const x1 = q1.x, y1 = q1.y;
+        tf(neurons[j], syv, cy, sx, cx, 1, 0, zk, B);
+        const q2 = project(B.x, B.y, B.z); if (!q2.ok) continue;
+        ctx.moveTo(x1, y1); ctx.lineTo(q2.x, q2.y);
+      }
+      ctx.stroke();
+      let active = 0;
+      for (const n of neurons) { if (n.e > 0.04) active++; if (n.r > 0) n.r--; }
+      if (t >= nextFire) {
+        nextFire = t + 1000 + Math.random() * 1200;
+        if (active < 3) {
+          const n = neurons[(Math.random() * neurons.length) | 0];
+          if (!n.r) { n.e = 1; n.r = 270; }
+        }
+      }
+      ctx.globalCompositeOperation = 'lighter';
+      for (const n of neurons) {
+        n.e = Math.max(0, n.e - 0.008);
+        tf(n, syv, cy, sx, cx, 1, 0, zk, A);
+        const q = project(A.x, A.y, A.z); if (!q.ok) continue;
+        const depth = Math.min(1.4, Math.max(0.2, q.s / (FL / (1.6 * U)))); // nearer = bigger
+        if (n.e > 0.04) {
+          const s = (10 + n.e * 34) * dpr * depth;
+          ctx.globalAlpha = al * (0.25 + 0.65 * n.e);
+          ctx.drawImage(glow, q.x - s / 2, q.y - s / 2, s, s);
+          ctx.globalAlpha = al;
+        } else {
+          ctx.fillStyle = `rgba(174,184,199,${(0.16 * depth).toFixed(2)})`;
+          const r = 1.5 * dpr * depth;
+          ctx.fillRect(q.x, q.y, r, r);
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    };
+    const drawStars = (t: number, al: number, zk: number, birth: number) => {
+      ctx.globalAlpha = al;
+      if (birth > 0.05) {
+        const pulse = 1 + 0.18 * Math.sin(t * 0.0016);
+        const s = 80 * dpr * pulse * birth;
+        const q = project(0, 0, zk);
+        if (q.ok) ctx.drawImage(glow, q.x - s / 2, q.y - s / 2, s, s);
+      }
+      for (const st of stars) {
+        tf(st, 0, 1, 0, 1, 1, 0, zk, A);
+        const q = project(A.x, A.y, A.z); if (!q.ok) continue;
+        const depth = Math.min(1.3, Math.max(0.25, q.s / (FL / (1.6 * U))));
+        const tw = Math.max(0, Math.sin(t * 0.0006 * st.s + st.ph));
+        const a = (0.1 + 0.55 * tw * tw * tw) * (1 - birth * 0.7);
+        ctx.fillStyle = `rgba(${STAR},${a.toFixed(2)})`;
+        const r = (tw > 0.985 ? 2.4 : 1.4) * dpr * depth;
+        ctx.fillRect(q.x - r / 2, q.y - r / 2, r, r);
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    // ---- render loop --------------------------------------------------------
+    const render = (t: number) => {
+      ctx.clearRect(0, 0, W, H);
+      emx += (mx - emx) * 0.06; emy += (my - emy) * 0.06;
+      camX = emx * 0.045 * U; camY = emy * 0.03 * U;
+      const p = P();
+      camZ = p * S - D;
+      for (let k = 0; k < 7; k++) {
+        const d = p - k;
+        const w = 1 - Math.min(1, Math.abs(d) / 0.72);
+        if (w <= 0.01) continue;
+        const al = w * w * (3 - 2 * w) * 0.95;
+        const zk = k * S;
+        // hop 0→1 zooms OUT: the wiring shrinks toward the board's package
+        const shrink = k === 0 ? 1 - 0.8 * Math.min(1, Math.max(0, p)) : 1;
+        if (k === 0) drawCircuit(t, al, zk, Math.max(0.15, shrink));
+        else if (k === 1) drawBoard(t, al, zk);
+        else if (k === 2) drawChip(t, al, zk);
+        else if (k === 3) drawBrain(t, al, zk);
+        else if (k === 4) drawNeurons(t, al, zk);
+        else if (k === 5) drawStars(t, al, zk, 1);
+        else drawStars(t, al, zk, 0);
+      }
+    };
+    const loop = (t: number) => {
+      requestAnimationFrame(loop);
+      if (document.hidden) return;
+      if (t - last < 33) return;
+      last = t; render(t);
+    };
+    const resize = () => {
+      W = cv.width = Math.floor(window.innerWidth * dpr);
+      H = cv.height = Math.floor(window.innerHeight * dpr);
+      U = Math.min(W, H);
+      FL = 0.95 * U;   // focal length
+      D = 1.6 * U;     // camera-to-scene viewing distance
+      S = 3.2 * U;     // spacing between scene stations
+      buildCircuit(); buildBoard(); buildChip(); buildBrain(); buildNeurons(); buildStars();
+      measure();
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', measure);
+    cv.classList.add('on');
+    requestAnimationFrame(loop);
+  }
+</script>
