@@ -1,0 +1,310 @@
+---
+// The scroll journey (§5 taken further): ONE fixed, veiled canvas behind the
+// whole home page. Scrolling moves a continuous "camera" through linked scenes
+//
+//   circuit traces → PCB board → chip die → brain → firing neurons
+//   → a last neuron that becomes the first star → twinkling starfield
+//
+// Section centers anchor the camera: hero=circuit, field=board, projects=chip,
+// skills=brain, experience=neurons, writing=star-birth, contact=starfield.
+// The first hop zooms OUT (traces shrink into the board); every later hop
+// zooms IN (the current scene grows past the camera while the next fades in).
+//
+// Everything is drawn procedurally every frame — no image sequences and no
+// pre-rendered frame buffers, so memory stays flat (a few small arrays + one
+// 48px glow sprite) no matter how long the page is open. Gating follows the
+// §5.2 contract: desktop-only, reduced-motion off, DPR ≤ 1.25, ~30 fps cap,
+// paused on hidden tabs. Purely decorative (aria-hidden); the .has-bg poster
+// gradients remain the no-JS/mobile fallback.
+---
+<canvas class="journey" id="journey" aria-hidden="true"></canvas>
+
+<script>
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const desktop = window.matchMedia('(min-width: 1024px)').matches;
+  const capable = (navigator.hardwareConcurrency || 4) >= 4;
+  const cv = document.getElementById('journey') as HTMLCanvasElement | null;
+
+  if (cv && !reduce && desktop && capable) setup(cv);
+
+  function setup(cv: HTMLCanvasElement) {
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const TEAL = '94,224,192', GREEN = '52,211,153', STAR = '214,226,255';
+    let W = 0, H = 0, U = 0, last = 0;
+
+    // Shared soft glow sprite.
+    const glow = document.createElement('canvas');
+    const GS = 48; glow.width = glow.height = GS;
+    const gc = glow.getContext('2d')!;
+    const gr = gc.createRadialGradient(GS / 2, GS / 2, 0, GS / 2, GS / 2, GS / 2);
+    gr.addColorStop(0, `rgba(${TEAL},0.9)`); gr.addColorStop(0.4, `rgba(${TEAL},0.32)`); gr.addColorStop(1, `rgba(${TEAL},0)`);
+    gc.fillStyle = gr; gc.fillRect(0, 0, GS, GS);
+
+    // ---- camera: continuous scene index p ∈ [0, 6] from section centers ----
+    const ids = ['hero', 'field', 'projects', 'skills', 'experience', 'writing', 'contact'];
+    let centers: number[] = [];
+    const measure = () => {
+      centers = ids.map((id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        const r = el.getBoundingClientRect();
+        return r.top + window.scrollY + r.height / 2;
+      });
+    };
+    const P = () => {
+      const sc = window.scrollY + window.innerHeight / 2;
+      if (sc <= centers[0]) return 0;
+      for (let i = 0; i < centers.length - 1; i++)
+        if (sc < centers[i + 1]) return i + (sc - centers[i]) / (centers[i + 1] - centers[i]);
+      return centers.length - 1;
+    };
+
+    // ---- scene geometry (rebuilt on resize; all in centered coordinates) ----
+    type Pt = { x: number; y: number };
+    let traces: { pts: Pt[]; segs: number[]; len: number; speed: number; off: number }[] = [];
+    let brainPts: (Pt & { ph: number })[] = [];
+    let brainLinks: [number, number][] = [];
+    let flashes: { l: [number, number]; e: number }[] = [];
+    let neurons: (Pt & { e: number; r: number })[] = [];
+    let stars: (Pt & { ph: number; s: number })[] = [];
+
+    const buildTraces = () => {
+      traces = [];
+      for (let i = 0; i < 15; i++) {
+        const pts: Pt[] = [{ x: (Math.random() - 0.5) * 0.5 * U, y: (Math.random() - 0.5) * 0.5 * U }];
+        let horiz = Math.random() < 0.5;
+        for (let s = 0, n = 4 + (Math.random() * 3 | 0); s < n; s++) {
+          const p = pts[pts.length - 1];
+          const step = (0.1 + Math.random() * 0.28) * U * (Math.random() < 0.5 ? -1 : 1);
+          pts.push(horiz ? { x: p.x + step, y: p.y } : { x: p.x, y: p.y + step });
+          horiz = !horiz;
+        }
+        const segs: number[] = []; let len = 0;
+        for (let s = 1; s < pts.length; s++) {
+          len += Math.abs(pts[s].x - pts[s - 1].x) + Math.abs(pts[s].y - pts[s - 1].y);
+          segs.push(len);
+        }
+        traces.push({ pts, segs, len, speed: 0.35 + Math.random() * 0.5, off: Math.random() });
+      }
+    };
+    const buildBrain = () => {
+      brainPts = []; brainLinks = []; flashes = [];
+      const inBrain = (x: number, y: number) => {
+        const e1 = (x / (0.34 * U)) ** 2 + ((y + 0.02 * U) / (0.24 * U)) ** 2 <= 1; // cerebrum
+        const e2 = ((x - 0.17 * U) / (0.13 * U)) ** 2 + ((y - 0.16 * U) / (0.08 * U)) ** 2 <= 1; // cerebellum
+        return e1 || e2;
+      };
+      while (brainPts.length < 230) {
+        const x = (Math.random() - 0.5) * 0.9 * U, y = (Math.random() - 0.5) * 0.65 * U;
+        if (inBrain(x, y)) brainPts.push({ x, y, ph: Math.random() * 7 });
+      }
+      for (let i = 0; i < brainPts.length && brainLinks.length < 320; i++)
+        for (let j = i + 1; j < brainPts.length; j++) {
+          const dx = brainPts[i].x - brainPts[j].x, dy = brainPts[i].y - brainPts[j].y;
+          if (dx * dx + dy * dy < (0.06 * U) ** 2) brainLinks.push([i, j]);
+        }
+    };
+    const buildNeurons = () => {
+      neurons = [];
+      for (let i = 0; i < 80; i++)
+        neurons.push({ x: (Math.random() - 0.5) * 1.3 * U, y: (Math.random() - 0.5) * 1.1 * U, e: 0, r: 0 });
+    };
+    const buildStars = () => {
+      stars = [];
+      for (let i = 0; i < 90; i++)
+        stars.push({ x: (Math.random() - 0.5) * 1.6 * U, y: (Math.random() - 0.5) * 1.3 * U, ph: Math.random() * 7, s: 0.7 + Math.random() });
+    };
+
+    const traceAt = (tr: (typeof traces)[0], u: number): Pt => {
+      const d = u * tr.len;
+      let i = 0;
+      while (i < tr.segs.length - 1 && tr.segs[i] < d) i++;
+      const prev = i === 0 ? 0 : tr.segs[i - 1];
+      const f = (d - prev) / (tr.segs[i] - prev || 1);
+      const a = tr.pts[i], b = tr.pts[i + 1];
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    };
+
+    // ---- scenes (each draws around the origin; camera applies scale/alpha) ----
+    const drawCircuit = (t: number) => {
+      ctx.lineWidth = 1.2 * dpr;
+      for (const tr of traces) {
+        ctx.strokeStyle = `rgba(${TEAL},0.26)`;
+        ctx.beginPath();
+        ctx.moveTo(tr.pts[0].x, tr.pts[0].y);
+        for (let i = 1; i < tr.pts.length; i++) ctx.lineTo(tr.pts[i].x, tr.pts[i].y);
+        ctx.stroke();
+        const end = tr.pts[tr.pts.length - 1];
+        ctx.fillStyle = `rgba(${TEAL},0.35)`;
+        ctx.beginPath(); ctx.arc(end.x, end.y, 3 * dpr, 0, 7); ctx.fill();
+        // the current: one slow pulse per trace
+        const p = traceAt(tr, (t * 0.00003 * tr.speed + tr.off) % 1);
+        const s = 14 * dpr;
+        ctx.drawImage(glow, p.x - s / 2, p.y - s / 2, s, s);
+      }
+    };
+    const drawBoard = (t: number) => {
+      const bw = 1.1 * U, bh = 0.72 * U;
+      ctx.strokeStyle = `rgba(${GREEN},0.4)`; ctx.lineWidth = 1.4 * dpr;
+      ctx.strokeRect(-bw / 2, -bh / 2, bw, bh);
+      for (const [hx, hy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        ctx.beginPath(); ctx.arc(hx * (bw / 2 - 0.04 * U), hy * (bh / 2 - 0.04 * U), 0.012 * U, 0, 7); ctx.stroke();
+      }
+      // the central package (what the next scene zooms into)
+      const c = 0.24 * U;
+      ctx.strokeStyle = `rgba(${TEAL},0.55)`; ctx.strokeRect(-c / 2, -c / 2, c, c);
+      ctx.lineWidth = dpr;
+      for (let k = 1; k <= 5; k++) {
+        const q = -c / 2 + (c * k) / 6;
+        ctx.beginPath();
+        ctx.moveTo(q, -c / 2); ctx.lineTo(q, -c / 2 - 0.02 * U);
+        ctx.moveTo(q, c / 2); ctx.lineTo(q, c / 2 + 0.02 * U);
+        ctx.moveTo(-c / 2, q); ctx.lineTo(-c / 2 - 0.02 * U, q);
+        ctx.moveTo(c / 2, q); ctx.lineTo(c / 2 + 0.02 * U, q);
+        ctx.stroke();
+      }
+      // satellite components + feeder traces with slow current
+      ctx.strokeStyle = `rgba(${GREEN},0.32)`;
+      const sats: [number, number, number, number][] = [
+        [-0.38 * U, -0.2 * U, 0.1 * U, 0.05 * U], [-0.4 * U, 0.14 * U, 0.07 * U, 0.07 * U],
+        [0.36 * U, -0.18 * U, 0.08 * U, 0.08 * U], [0.38 * U, 0.16 * U, 0.11 * U, 0.045 * U],
+      ];
+      for (const [x, y, w2, h2] of sats) ctx.strokeRect(x - w2 / 2, y - h2 / 2, w2, h2);
+      for (let i = 0; i < sats.length; i++) {
+        const [x, y] = sats[i];
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(Math.sign(x) * c / 2, y * 0.5); ctx.lineTo(Math.sign(x) * c / 2 * 0.98, y * 0.5); ctx.stroke();
+        const f = (t * 0.00005 + i * 0.25) % 1;
+        const px = x + (Math.sign(x) * c / 2 - x) * f, py = y + (y * 0.5 - y) * f;
+        const s = 10 * dpr; ctx.drawImage(glow, px - s / 2, py - s / 2, s, s);
+      }
+    };
+    const drawChip = (t: number) => {
+      const aw = 0.66 * U, ah = 0.44 * U, cols = 9, rows = 6;
+      ctx.strokeStyle = `rgba(${TEAL},0.4)`; ctx.lineWidth = 1.2 * dpr;
+      ctx.strokeRect(-aw / 2 - 0.03 * U, -ah / 2 - 0.03 * U, aw + 0.06 * U, ah + 0.06 * U);
+      const cw = aw / cols, chh = ah / rows;
+      for (let iy = 0; iy < rows; iy++)
+        for (let ix = 0; ix < cols; ix++) {
+          const wave = Math.max(0, Math.sin(t * 0.0006 + (ix + iy) * 0.45));
+          const b = 0.05 + 0.04 * Math.sin(t * 0.0012 + ix * 0.9 + iy * 1.3) + 0.18 * wave * wave;
+          ctx.fillStyle = `rgba(${TEAL},${b.toFixed(3)})`;
+          ctx.fillRect(-aw / 2 + ix * cw + dpr, -ah / 2 + iy * chh + dpr, cw - 2 * dpr, chh - 2 * dpr);
+        }
+    };
+    let nextFlash = 0;
+    const drawBrain = (t: number) => {
+      ctx.lineWidth = dpr;
+      ctx.strokeStyle = `rgba(${TEAL},0.09)`;
+      ctx.beginPath();
+      for (const [i, j] of brainLinks) { ctx.moveTo(brainPts[i].x, brainPts[i].y); ctx.lineTo(brainPts[j].x, brainPts[j].y); }
+      ctx.stroke();
+      for (const p of brainPts) {
+        const b = 0.3 + 0.2 * Math.sin(t * 0.001 + p.ph);
+        ctx.fillStyle = `rgba(${TEAL},${b.toFixed(2)})`;
+        ctx.fillRect(p.x, p.y, 1.5 * dpr, 1.5 * dpr);
+      }
+      if (t >= nextFlash && brainLinks.length) {
+        nextFlash = t + 700 + Math.random() * 900;
+        if (flashes.length < 3) flashes.push({ l: brainLinks[(Math.random() * brainLinks.length) | 0], e: 1 });
+      }
+      for (const f of flashes) {
+        f.e -= 0.02;
+        if (f.e <= 0) continue;
+        const [i, j] = f.l;
+        ctx.strokeStyle = `rgba(${GREEN},${(0.7 * f.e).toFixed(2)})`;
+        ctx.lineWidth = 1.8 * dpr;
+        ctx.beginPath(); ctx.moveTo(brainPts[i].x, brainPts[i].y); ctx.lineTo(brainPts[j].x, brainPts[j].y); ctx.stroke();
+      }
+      flashes = flashes.filter((f) => f.e > 0);
+    };
+    let nextFire = 0;
+    const drawNeuronsScene = (t: number) => {
+      let active = 0;
+      for (const n of neurons) { if (n.e > 0.04) active++; if (n.r > 0) n.r--; }
+      if (t >= nextFire) {
+        nextFire = t + 1000 + Math.random() * 1200;
+        if (active < 3) {
+          const n = neurons[(Math.random() * neurons.length) | 0];
+          if (!n.r) { n.e = 1; n.r = 270; }
+        }
+      }
+      ctx.lineWidth = dpr; ctx.strokeStyle = `rgba(${TEAL},0.06)`;
+      ctx.beginPath();
+      for (let i = 0; i < neurons.length; i++)
+        for (let j = i + 1; j < neurons.length; j++) {
+          const dx = neurons[i].x - neurons[j].x, dy = neurons[i].y - neurons[j].y;
+          if (dx * dx + dy * dy < (0.09 * U) ** 2) { ctx.moveTo(neurons[i].x, neurons[i].y); ctx.lineTo(neurons[j].x, neurons[j].y); }
+        }
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const n of neurons) {
+        n.e = Math.max(0, n.e - 0.008);
+        if (n.e > 0.04) { const s = (8 + n.e * 30) * dpr; ctx.drawImage(glow, n.x - s / 2, n.y - s / 2, s, s); }
+        else { ctx.fillStyle = 'rgba(174,184,199,0.14)'; ctx.fillRect(n.x, n.y, 1.4 * dpr, 1.4 * dpr); }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    const drawStars = (t: number, birth: number) => {
+      // birth 1 → the single just-born star dominates; birth 0 → full field
+      if (birth > 0.05) {
+        const pulse = 1 + 0.18 * Math.sin(t * 0.0016);
+        const s = 70 * dpr * pulse * birth;
+        ctx.drawImage(glow, -s / 2, -s / 2, s, s);
+      }
+      for (const st of stars) {
+        const tw = Math.max(0, Math.sin(t * 0.0006 * st.s + st.ph));
+        const a = (0.1 + 0.55 * tw * tw * tw) * (1 - birth * 0.7);
+        ctx.fillStyle = `rgba(${STAR},${a.toFixed(2)})`;
+        const r = (tw > 0.985 ? 2.2 : 1.3) * dpr;
+        ctx.fillRect(st.x - r / 2, st.y - r / 2, r, r);
+      }
+    };
+
+    const scenes: ((t: number) => void)[] = [
+      drawCircuit, drawBoard, drawChip, drawBrain, drawNeuronsScene,
+      (t) => drawStars(t, 1), (t) => drawStars(t, 0),
+    ];
+
+    // ---- camera + loop ----
+    const Z = 2.3;
+    const render = (t: number) => {
+      ctx.clearRect(0, 0, W, H);
+      const p = P();
+      for (let k = 0; k < scenes.length; k++) {
+        const d = p - k;
+        const a = 1 - Math.min(1, Math.abs(d) / 0.62);
+        if (a <= 0.01) continue;
+        // hop 0→1 zooms OUT (circuit shrinks into the board); later hops zoom IN
+        const dir = (k === 0 && d > 0) || (k === 1 && d < 0) ? -1 : 1;
+        const s = Math.pow(Z, dir * d);
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(s, s);
+        ctx.globalAlpha = a * a * (3 - 2 * a); // smoothstep
+        scenes[k](t);
+        ctx.restore();
+      }
+    };
+    const loop = (t: number) => {
+      requestAnimationFrame(loop);
+      if (document.hidden) return;
+      if (t - last < 33) return;
+      last = t; render(t);
+    };
+    const resize = () => {
+      W = cv.width = Math.floor(window.innerWidth * dpr);
+      H = cv.height = Math.floor(window.innerHeight * dpr);
+      U = Math.min(W, H);
+      buildTraces(); buildBrain(); buildNeurons(); buildStars();
+      measure();
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', measure);
+    cv.classList.add('on');
+    requestAnimationFrame(loop);
+  }
+</script>
