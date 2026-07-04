@@ -11,8 +11,13 @@ const projects = (await getCollection('projects')).sort(
 );
 const bySlug = Object.fromEntries(projects.map((p) => [p.id, p]));
 
-// Toggle the 3D avatar in the contact section (set false to hide it).
+// The 3D avatar in the contact section — all three switches in one place:
+//   showAvatar  false hides the figure entirely
+//   avatarPose  'standing' (upright) or 'sitting' (cross-legged on the ground)
+//   avatarEyes  false removes the eyes in either pose
 const showAvatar = true;
+const avatarPose: 'standing' | 'sitting' = 'standing';
+const avatarEyes = true;
 
 // What I work on — the fields themselves, stated as vision, not achievements
 // (the metrics live on the project cards below). Icons are hand-drawn inline
@@ -185,13 +190,13 @@ const pillars = [
       </div>
       </div>
 
-      <!-- 3D avatar: a wireframe figure typing on a laptop, facing the contact
-           cards; hovering it makes the hand drop, the torso twist, and the
-           head turn to look at you — a fluid 3D interpolation, not an image
-           swap. Toggle with `showAvatar` in this file's frontmatter. -->
+      <!-- 3D avatar: a wireframe figure facing the contact cards; hovering it
+           turns the head (and, when sitting, lifts the hand off the keys) to
+           look at you — a fluid 3D interpolation, not an image swap.
+           Configure with showAvatar / avatarPose / avatarEyes up top. -->
       {showAvatar && (
         <div class="avatar" aria-hidden="true">
-          <Avatar3D />
+          <Avatar3D pose={avatarPose} eyes={avatarEyes} />
         </div>
       )}
     </div>
