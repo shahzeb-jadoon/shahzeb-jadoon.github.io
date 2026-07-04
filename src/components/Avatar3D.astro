@@ -1,15 +1,17 @@
 ---
-// 3D avatar (v3): a wireframe-hologram figure sitting cross-legged on the
-// floor, back to the viewer, typing on a laptop under the starfield. On
+// 3D avatar (final branch): a wireframe figure sitting cross-legged, seen in
+// profile FACING THE CONTACT CARDS (screen-left), typing on a laptop. On
 // hover the pose *interpolates* — the near hand drops to the knee, the torso
-// twists, and the head turns over the shoulder to look at you — a fluid 3D
-// turn, not a two-image swap. Everything is a parametric skeleton drawn with
-// perspective projection: no model files, no textures, ~0 added payload.
+// twists, and the head turns to look at the viewer — a fluid 3D turn, not a
+// two-image swap. The head is a clean silhouette circle (no interior rings,
+// no line running into it) and the eyes are small neutral dots that fade in
+// only once the head has come around.
 //
-// Same gating spirit as the journey: reduced-motion gets a single static
-// frame (no loop, no turn); the whole container is hidden < 900px by CSS;
-// rendering pauses when the section is off-screen or the tab is hidden.
-// Decorative (aria-hidden).
+// Toggle: `showAvatar` in src/pages/index.astro hides the whole figure.
+// Everything is a parametric skeleton drawn with perspective projection: no
+// model files, no textures, ~0 added payload. Reduced-motion gets a single
+// static frame (no loop, no turn); the container is hidden < 900px by CSS;
+// rendering pauses off-screen and on hidden tabs. Decorative (aria-hidden).
 ---
 <canvas id="avatar3d" width="240" height="260" aria-hidden="true"></canvas>
 
@@ -25,38 +27,40 @@
     const cw = cv.clientWidth || 240, ch = cv.clientHeight || 260;
     cv.width = Math.floor(cw * dpr); cv.height = Math.floor(ch * dpr);
     const W = cv.width, H = cv.height;
-    const TEAL = '94,224,192', GREEN = '52,211,153';
-    const u = H / 9.5;              // body unit (head radius ≈ 0.85u)
+    const TEAL = '94,224,192';
+    const u = H / 9.5;              // body unit (head radius ≈ 0.82u)
     const FL = 7.5 * u, CAMZ = -9 * u, CAMY = -1.2 * u;
 
-    const pr = { x: 0, y: 0, ok: false };
+    const pr = { x: 0, y: 0, s: 0, ok: false };
     const project = (x: number, y: number, z: number) => {
       const dz = z - CAMZ;
       if (dz < u) { pr.ok = false; return pr; }
       const s = FL / dz;
       pr.x = W / 2 + x * s;
       pr.y = H / 2 + (y - CAMY) * s;
-      pr.ok = true;
+      pr.s = s; pr.ok = true;
       return pr;
     };
 
-    // ---- pose (0 = working/away · 1 = turned, looking at the viewer) ------
-    // Interpolated every frame toward the hover target → the fluid turn.
+    // ---- pose (0 = working, facing the cards · 1 = turned to the viewer) --
     let pose = 0, poseTarget = 0;
 
     const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
     type V = { x: number; y: number; z: number };
     const L = (a: V, b: V, f: number): V => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f) });
+    // The figure is modelled facing +z, then the whole body is turned to face
+    // screen-left (−x, toward the contact cards) by this fixed base rotation.
+    const base = (p: V): V => ({ x: -p.z, y: p.y, z: p.x });
 
-    // skeleton anchors (viewer at −z; the figure faces +z, i.e. away)
-    const PELVIS: V = { x: 0, y: 1.7 * u, z: 0 };
+    // skeleton anchors (local frame: figure faces +z)
     const NECK: V = { x: 0, y: -0.7 * u, z: 0.05 * u };
     const HEAD: V = { x: 0, y: -1.55 * u, z: 0.1 * u };
+    const HEAD_R = 0.82 * u;
     const SHO_L: V = { x: -1.0 * u, y: -0.45 * u, z: 0.05 * u };
     const SHO_R: V = { x: 1.0 * u, y: -0.45 * u, z: 0.05 * u };
     const HIP_L: V = { x: -0.55 * u, y: 1.6 * u, z: 0 };
     const HIP_R: V = { x: 0.55 * u, y: 1.6 * u, z: 0 };
-    // arms: typing pose vs right hand resting on the knee
+    // arms: typing pose vs the near hand resting on the knee
     const ELB_L: V = { x: -1.3 * u, y: 0.55 * u, z: 0.4 * u };
     const WRI_L: V = { x: -0.55 * u, y: 1.25 * u, z: 1.15 * u };
     const ELB_R0: V = { x: 1.3 * u, y: 0.55 * u, z: 0.4 * u };
@@ -68,51 +72,23 @@
     const KNEE_R: V = { x: 1.35 * u, y: 2.55 * u, z: 0.55 * u };
     const ANK_L: V = { x: 0.45 * u, y: 3.05 * u, z: 0.95 * u };
     const ANK_R: V = { x: -0.45 * u, y: 3.05 * u, z: 0.95 * u };
-
-    // head wireframe: lat/long rings of a unit sphere (built once)
-    const headRings: V[][] = [];
-    (() => {
-      const R = 0.82 * u;
-      for (const lat of [-0.45, 0, 0.45]) {
-        const ringPts: V[] = [];
-        const r = Math.cos(lat * Math.PI / 2) * R, y = Math.sin(lat * Math.PI / 2) * R;
-        for (let i = 0; i <= 16; i++) {
-          const a = (i / 16) * 6.2832;
-          ringPts.push({ x: Math.cos(a) * r, y, z: Math.sin(a) * r });
-        }
-        headRings.push(ringPts);
-      }
-      for (const lon of [0, 1, 2, 3]) {
-        const ringPts: V[] = [];
-        const a0 = (lon / 4) * Math.PI;
-        for (let i = 0; i <= 16; i++) {
-          const b = (i / 16) * 6.2832;
-          ringPts.push({
-            x: Math.cos(a0) * Math.cos(b) * R,
-            y: Math.sin(b) * R,
-            z: Math.sin(a0) * Math.cos(b) * R,
-          });
-        }
-        headRings.push(ringPts);
-      }
-    })();
-
-    // face features live on the head sphere's +z side (hidden while facing
-    // away); the head yaw brings them around to meet the camera.
-    const EYE_L: V = { x: -0.3 * u, y: -0.12 * u, z: 0.74 * u };
-    const EYE_R: V = { x: 0.3 * u, y: -0.12 * u, z: 0.74 * u };
+    // eyes on the head sphere's +z (face) side, in head-local coordinates
+    const EYE_L: V = { x: -0.28 * u, y: -0.1 * u, z: 0.75 * u };
+    const EYE_R: V = { x: 0.28 * u, y: -0.1 * u, z: 0.75 * u };
 
     const rotY = (p: V, s: number, c: number): V => ({ x: p.x * c + p.z * s, y: p.y, z: -p.x * s + p.z * c });
 
     const seg = (a: V, b: V, style: string, lw: number) => {
-      const p1 = project(a.x, a.y, a.z); if (!p1.ok) return;
+      const A = base(a), B = base(b);
+      const p1 = project(A.x, A.y, A.z); if (!p1.ok) return;
       const x1 = p1.x, y1 = p1.y;
-      const p2 = project(b.x, b.y, b.z); if (!p2.ok) return;
+      const p2 = project(B.x, B.y, B.z); if (!p2.ok) return;
       ctx.strokeStyle = style; ctx.lineWidth = lw;
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(p2.x, p2.y); ctx.stroke();
     };
     const dot = (a: V, r: number, style: string) => {
-      const p = project(a.x, a.y, a.z); if (!p.ok) return;
+      const A = base(a);
+      const p = project(A.x, A.y, A.z); if (!p.ok) return;
       ctx.fillStyle = style;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     };
@@ -122,9 +98,8 @@
       const line = `rgba(${TEAL},0.8)`, dim = `rgba(${TEAL},0.4)`;
       const lw = 2.2 * dpr, lwd = 1.2 * dpr;
 
-      // torso twist follows the pose; the whole body twists a little,
-      // the head a lot.
-      const tor = pose * 0.35, hed = pose * 2.05;
+      // the body twists a little toward the viewer, the head a lot
+      const tor = -0.3 * pose, hed = -1.45 * pose;
       const st = Math.sin(tor), ct = Math.cos(tor);
       const twist = (p: V): V => {
         const q = rotY({ x: p.x, y: 0, z: p.z }, st, ct);
@@ -136,14 +111,14 @@
       ctx.beginPath();
       for (let i = 0; i <= 28; i++) {
         const a = (i / 28) * 6.2832;
-        const p = project(Math.cos(a) * 2.3 * u, 3.25 * u, Math.sin(a) * 1.5 * u);
+        const p = project(Math.cos(a) * 2.1 * u, 3.25 * u, Math.sin(a) * 1.5 * u);
         if (!p.ok) continue;
         if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
       }
       ctx.stroke();
 
-      // laptop (stays put; the figure turns away from it)
-      const base: V[] = [
+      // laptop (in front of the figure — i.e. between it and the cards)
+      const lap: V[] = [
         { x: -1.05 * u, y: 1.5 * u, z: 1.35 * u }, { x: 1.05 * u, y: 1.5 * u, z: 1.35 * u },
         { x: 1.05 * u, y: 1.55 * u, z: 2.2 * u }, { x: -1.05 * u, y: 1.55 * u, z: 2.2 * u },
       ];
@@ -151,7 +126,7 @@
         { x: -1.05 * u, y: 1.55 * u, z: 2.2 * u }, { x: 1.05 * u, y: 1.55 * u, z: 2.2 * u },
         { x: 1.05 * u, y: -0.3 * u, z: 2.5 * u }, { x: -1.05 * u, y: -0.3 * u, z: 2.5 * u },
       ];
-      for (let i = 0; i < 4; i++) seg(base[i], base[(i + 1) % 4], dim, lwd);
+      for (let i = 0; i < 4; i++) seg(lap[i], lap[(i + 1) % 4], dim, lwd);
       for (let i = 0; i < 4; i++) seg(scr[i], scr[(i + 1) % 4], dim, lwd);
       // screen glow (flickers while typing, steadies when the figure turns)
       const flick = (1 - pose) * 0.03 * Math.sin(t * 0.02) + 0.1;
@@ -159,7 +134,8 @@
       ctx.beginPath();
       let first = true;
       for (const p of scr) {
-        const q = project(p.x, p.y, p.z); if (!q.ok) { first = true; continue; }
+        const Bp = base(p);
+        const q = project(Bp.x, Bp.y, Bp.z); if (!q.ok) { first = true; continue; }
         if (first) { ctx.moveTo(q.x, q.y); first = false; } else ctx.lineTo(q.x, q.y);
       }
       ctx.closePath(); ctx.fill();
@@ -175,10 +151,12 @@
       seg(shoL, shoR, line, lw);
       seg(shoL, hipL, line, lw); seg(shoR, hipR, line, lw);
       seg(hipL, hipR, line, lw);
-      seg({ x: (hipL.x + hipR.x) / 2, y: 1.6 * u, z: (hipL.z + hipR.z) / 2 }, neck, dim, lwd); // spine
+      // short neck stub — it stops at the head's silhouette, never inside it
+      const headC = twist(HEAD);
+      seg(neck, { x: headC.x, y: headC.y + HEAD_R * 0.98, z: headC.z }, line, lw);
 
-      // arms — the left keeps typing; the right lifts off the keys, drops to
-      // the knee as the figure turns (WRI_R0 → WRI_R1 with the pose)
+      // arms — the far hand keeps typing; the near hand lifts off the keys
+      // and drops to the knee as the figure turns (WRI_R0 → WRI_R1)
       const typeBob = (1 - pose) * Math.sin(t * 0.012) * 0.05 * u;
       const wriL: V = { x: WRI_L.x, y: WRI_L.y + typeBob, z: WRI_L.z };
       seg(shoL, ELB_L, line, lw); seg(ELB_L, wriL, line, lw);
@@ -187,30 +165,24 @@
       seg(shoR, twist(elbR), line, lw); seg(twist(elbR), twist(wriR2), line, lw);
       dot(twist(wriR2), 2.2 * dpr, line); dot(wriL, 2.2 * dpr, line);
 
-      // head — rides the neck, yaws over the right shoulder toward the camera
-      const sh = Math.sin(hed), chd = Math.cos(hed);
-      const headC = twist(HEAD);
-      ctx.strokeStyle = `rgba(${TEAL},0.55)`; ctx.lineWidth = 1.4 * dpr;
-      for (const ringPts of headRings) {
-        ctx.beginPath();
-        let started = false;
-        for (const p of ringPts) {
-          const r = rotY(p, sh, chd);
-          const q = project(headC.x + r.x, headC.y + r.y, headC.z + r.z);
-          if (!q.ok) { started = false; continue; }
-          if (started) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); started = true; }
-        }
-        ctx.stroke();
+      // head — a clean silhouette circle (a sphere's outline is a circle from
+      // any angle, so this stays correct while the head turns)
+      const hb = base(headC);
+      const hq = project(hb.x, hb.y, hb.z);
+      if (hq.ok) {
+        ctx.strokeStyle = line; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.arc(hq.x, hq.y, HEAD_R * hq.s, 0, 7); ctx.stroke();
       }
-      // the face fades in only once the head has actually come around
-      const faceA = Math.max(0, Math.min(1, (hed - 1.15) / 0.7));
+      // eyes — small neutral dots, visible only once the head has come around
+      const faceA = Math.max(0, Math.min(1, (pose - 0.45) / 0.4));
       if (faceA > 0.01) {
+        const sh = Math.sin(hed), chd = Math.cos(hed);
         for (const e of [EYE_L, EYE_R]) {
           const r = rotY(e, sh, chd);
-          dot({ x: headC.x + r.x, y: headC.y + r.y, z: headC.z + r.z }, 2.6 * dpr, `rgba(${GREEN},${(0.9 * faceA).toFixed(2)})`);
+          dot({ x: headC.x + r.x, y: headC.y + r.y, z: headC.z + r.z },
+            1.8 * dpr, `rgba(174,184,199,${(0.85 * faceA).toFixed(2)})`);
         }
       }
-      seg(neck, headC, line, lw); // neck
     };
 
     if (reduce) { pose = 0; draw(0); return; } // single static frame
