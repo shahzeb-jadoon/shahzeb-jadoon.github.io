@@ -18,7 +18,8 @@
 //               glowing center neuron is the star seen from afar; the star
 //               is born near the END of this section
 //   writing     the twinkling 3D starfield
-//   contact     nothing — just the 3D avatar in the section itself
+//   contact     the starfield continues (flying a little deeper into the same
+//               sky) behind the 3D avatar in the section itself
 //
 // Everything is procedural geometry (a few hundred points/edges per scene) —
 // no model files, no textures, no frame buffers: memory stays flat and the
@@ -587,9 +588,9 @@
       camX = emx * 0.045 * U; camY = emy * 0.03 * U;
       const p = P();
       camZ = p * S - D;
-      // k = 6 (contact) deliberately draws nothing — that section belongs to
-      // the avatar alone.
-      for (let k = 0; k < 6; k++) {
+      // k = 6 (contact) keeps the starfield going — the 5→6 crossfade reads
+      // as flying deeper into the same sky, and the stars stay to the end.
+      for (let k = 0; k < 7; k++) {
         const d = p - k;
         const w = 1 - Math.min(1, Math.abs(d) / 0.72);
         if (w <= 0.01) continue;
@@ -603,11 +604,13 @@
         else if (k === 2) drawChip(t, al, zk);
         else if (k === 3) drawBrain(t, al, zk);
         else if (k === 4) drawNeurons(t, al, zk);
-        else {
+        else if (k === 5) {
           // the star is born near the END of experience (p ≈ 4.6) and the
           // field resolves to plain twinkling by the writing section
           const birth = Math.max(0, Math.min(1, 1 - (p - 4.55) / 0.75));
           drawStars(t, al, zk, birth);
+        } else {
+          drawStars(t, al, zk, 0); // contact: the same sky, a little deeper in
         }
       }
     };
