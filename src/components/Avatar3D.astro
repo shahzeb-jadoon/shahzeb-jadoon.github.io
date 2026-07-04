@@ -1,26 +1,30 @@
 ---
 // 3D avatar (final branch): a wireframe figure seen in profile FACING THE
-// CONTACT CARDS (screen-left). Two poses, chosen from index.astro:
+// CONTACT CARDS (screen-left), always working on the laptop. Three poses,
+// chosen from index.astro:
 //
-//   pose="standing"  upright, hands relaxed, gentle breathing sway
-//   pose="sitting"   cross-legged ON the ground, typing on a laptop
+//   pose="standing"  upright, laptop held on the left forearm, right hand
+//                    typing; gentle breathing sway
+//   pose="sitting"   cross-legged, hips raised, laptop at lap height
+//   pose="full-sit"  cross-legged fully DOWN on the floor, laptop resting
+//                    on the ground in front
 //
-// On hover the pose *interpolates* — the torso twists and the head turns to
-// look at the viewer (sitting also lifts the near hand off the keys to the
-// knee) — a fluid 3D turn, not a two-image swap. The head is a clean
-// silhouette circle (no interior rings, no line running into it); the eyes
-// are small neutral dots that fade in once the head comes around, and can be
-// disabled entirely with eyes={false}.
+// On hover the pose *interpolates* — the torso twists, the head turns to
+// look at the viewer, and the near hand lifts off the keys — a fluid 3D
+// turn, not a two-image swap. The head is a clean silhouette circle (no
+// interior rings, no line running into it); the eyes are small neutral dots
+// that fade in once the head comes around, and can be disabled with
+// eyes={false}.
 //
-// All three switches live together in src/pages/index.astro:
-//   const showAvatar = …   const avatarPose = …   const avatarEyes = …
+// All switches live together in src/pages/index.astro:
+//   show3D · showAvatar · avatarPose · avatarEyes
 //
 // Everything is a parametric skeleton drawn with perspective projection: no
 // model files, no textures, ~0 added payload. Reduced-motion gets a single
 // static frame (no loop, no turn); the container is hidden < 900px by CSS;
 // rendering pauses off-screen and on hidden tabs. Decorative (aria-hidden).
 interface Props {
-  pose?: 'standing' | 'sitting';
+  pose?: 'standing' | 'sitting' | 'full-sit';
   eyes?: boolean;
 }
 const { pose = 'standing', eyes = true } = Astro.props;
@@ -36,7 +40,7 @@ const { pose = 'standing', eyes = true } = Astro.props;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const SITTING = cv.dataset.pose === 'sitting';
+    const POSE = cv.dataset.pose || 'standing';
     const EYES = !!cv.dataset.eyes;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cw = cv.clientWidth || 240, ch = cv.clientHeight || 260;
@@ -58,62 +62,69 @@ const { pose = 'standing', eyes = true } = Astro.props;
       return pr;
     };
 
-    // ---- pose (0 = at rest, facing the cards · 1 = turned to the viewer) --
+    // ---- pose blend (0 = working · 1 = turned to the viewer) --------------
     let pose = 0, poseTarget = 0;
 
     const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
     type V = { x: number; y: number; z: number };
     const L = (a: V, b: V, f: number): V => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f) });
+    const v = (x: number, y: number, z: number): V => ({ x: x * u, y: y * u, z: z * u });
     // The figure is modelled facing +z, then the whole body is turned to face
     // screen-left (−x, toward the contact cards) by this fixed base rotation.
     const base = (p: V): V => ({ x: -p.z, y: p.y, z: p.x });
 
-    // ---- skeleton anchors (local frame: figure faces +z; y+ is down) ------
-    // SITTING: cross-legged, ON the ground (ankles at the floor line).
-    // STANDING: upright, arms relaxed at the sides, no laptop.
-    const A_SIT = {
-      NECK: { x: 0, y: -0.35 * u, z: 0.05 * u },
-      HEAD: { x: 0, y: -1.2 * u, z: 0.1 * u },
-      SHO_L: { x: -1.0 * u, y: -0.1 * u, z: 0.05 * u },
-      SHO_R: { x: 1.0 * u, y: -0.1 * u, z: 0.05 * u },
-      HIP_L: { x: -0.55 * u, y: 1.95 * u, z: 0 },
-      HIP_R: { x: 0.55 * u, y: 1.95 * u, z: 0 },
-      ELB_L: { x: -1.3 * u, y: 0.9 * u, z: 0.4 * u },
-      WRI_L: { x: -0.55 * u, y: 1.6 * u, z: 1.15 * u },
-      ELB_R0: { x: 1.3 * u, y: 0.9 * u, z: 0.4 * u },
-      WRI_R0: { x: 0.55 * u, y: 1.6 * u, z: 1.15 * u },
-      ELB_R1: { x: 1.45 * u, y: 1.15 * u, z: -0.1 * u },  // hover: hand drops…
-      WRI_R1: { x: 1.15 * u, y: 2.65 * u, z: 0.5 * u },   // …to the knee
-      KNEE_L: { x: -1.35 * u, y: 2.8 * u, z: 0.55 * u },
-      KNEE_R: { x: 1.35 * u, y: 2.8 * u, z: 0.55 * u },
-      ANK_L: { x: 0.45 * u, y: 3.2 * u, z: 0.95 * u },
-      ANK_R: { x: -0.45 * u, y: 3.2 * u, z: 0.95 * u },
+    // ---- skeletons (local frame: figure faces +z; y+ is down; unit = u) ---
+    // Each pose: joint anchors + a laptop (base quad, screen quad). The *_R1
+    // variants are the hover targets for the near (right) arm.
+    const SITTING_BASE = {
+      NECK: v(0, -0.35, 0.05), HEAD: v(0, -1.2, 0.1),
+      SHO_L: v(-1.0, -0.1, 0.05), SHO_R: v(1.0, -0.1, 0.05),
+      HIP_L: v(-0.55, 1.95, 0), HIP_R: v(0.55, 1.95, 0),
+      ELB_L: v(-1.3, 0.9, 0.4), WRI_L: v(-0.55, 1.6, 1.15),
+      ELB_R0: v(1.3, 0.9, 0.4), WRI_R0: v(0.55, 1.6, 1.15),
+      ELB_R1: v(1.45, 1.15, -0.1), WRI_R1: v(1.15, 2.65, 0.5),
+      KNEE_L: v(-1.35, 2.8, 0.55), KNEE_R: v(1.35, 2.8, 0.55),
+      ANK_L: v(0.45, 3.2, 0.95), ANK_R: v(-0.45, 3.2, 0.95),
+      LAP: [v(-1.05, 1.85, 1.35), v(1.05, 1.85, 1.35), v(1.05, 1.9, 2.2), v(-1.05, 1.9, 2.2)],
+      SCR: [v(-1.05, 1.9, 2.2), v(1.05, 1.9, 2.2), v(1.05, 0.05, 2.5), v(-1.05, 0.05, 2.5)],
+      FLOOR_RX: 2.1, FLOOR_RZ: 1.5,
     };
-    // Standing is seen in profile, so silhouette depth (local z) is what
-    // reads on screen: arms hang slightly forward, one foot leads.
-    const A_STAND = {
-      NECK: { x: 0, y: -1.25 * u, z: 0.03 * u },
-      HEAD: { x: 0, y: -2.1 * u, z: 0.1 * u },
-      SHO_L: { x: -0.72 * u, y: -1.05 * u, z: 0 },
-      SHO_R: { x: 0.72 * u, y: -1.05 * u, z: 0 },
-      HIP_L: { x: -0.4 * u, y: 0.75 * u, z: -0.05 * u },
-      HIP_R: { x: 0.4 * u, y: 0.75 * u, z: -0.05 * u },
-      ELB_L: { x: -0.8 * u, y: -0.15 * u, z: 0.16 * u },
-      WRI_L: { x: -0.72 * u, y: 0.72 * u, z: 0.34 * u },
-      ELB_R0: { x: 0.8 * u, y: -0.15 * u, z: 0.16 * u },
-      WRI_R0: { x: 0.72 * u, y: 0.72 * u, z: 0.34 * u },
-      ELB_R1: { x: 0.85 * u, y: -0.2 * u, z: 0.2 * u }, // hover: barely moves
-      WRI_R1: { x: 0.78 * u, y: 0.68 * u, z: 0.4 * u },
-      KNEE_L: { x: -0.33 * u, y: 1.95 * u, z: 0.22 * u },
-      KNEE_R: { x: 0.33 * u, y: 1.95 * u, z: -0.02 * u },
-      ANK_L: { x: -0.35 * u, y: 3.18 * u, z: 0.34 * u },
-      ANK_R: { x: 0.35 * u, y: 3.18 * u, z: -0.14 * u },
+    // full-sit: the same cross-legged figure dropped fully onto the floor —
+    // hips near the ground, legs almost flat, laptop resting on the ground.
+    const FULLSIT = (() => {
+      const s = structuredClone(SITTING_BASE);
+      const dyBody = 0.7, dyArm = 0.85, dyLap = 1.15;
+      for (const k of ['NECK', 'HEAD', 'SHO_L', 'SHO_R'] as const) s[k].y += dyBody * u;
+      for (const k of ['HIP_L', 'HIP_R'] as const) s[k].y += dyBody * u;
+      for (const k of ['ELB_L', 'WRI_L', 'ELB_R0', 'WRI_R0'] as const) s[k].y += dyArm * u;
+      s.ELB_R1.y += dyBody * u; s.WRI_R1 = v(1.15, 2.95, 0.5);
+      for (const k of ['KNEE_L', 'KNEE_R'] as const) s[k].y += 0.25 * u;
+      // ankles stay on the floor line
+      for (const p of s.LAP) p.y += dyLap * u;
+      for (const p of s.SCR) p.y += dyLap * u;
+      return s;
+    })();
+    // standing: laptop held on the left forearm at waist height, right hand
+    // types; in profile the arms hang forward and one foot leads.
+    const STANDING = {
+      NECK: v(0, -1.25, 0.03), HEAD: v(0, -2.1, 0.1),
+      SHO_L: v(-0.72, -1.05, 0), SHO_R: v(0.72, -1.05, 0),
+      HIP_L: v(-0.4, 0.75, -0.05), HIP_R: v(0.4, 0.75, -0.05),
+      ELB_L: v(-0.75, 0.0, 0.35), WRI_L: v(-0.35, 0.45, 0.85),   // holds the laptop
+      ELB_R0: v(0.78, -0.25, 0.4), WRI_R0: v(0.3, 0.22, 0.92),   // types
+      ELB_R1: v(0.85, -0.15, 0.18), WRI_R1: v(0.75, 0.72, 0.32), // hover: hand drops to the side
+      KNEE_L: v(-0.33, 1.95, 0.22), KNEE_R: v(0.33, 1.95, -0.02),
+      ANK_L: v(-0.35, 3.18, 0.34), ANK_R: v(0.35, 3.18, -0.14),
+      LAP: [v(-0.55, 0.3, 0.55), v(0.55, 0.3, 0.55), v(0.55, 0.36, 1.25), v(-0.55, 0.36, 1.25)],
+      SCR: [v(-0.55, 0.36, 1.25), v(0.55, 0.36, 1.25), v(0.55, -0.72, 1.48), v(-0.55, -0.72, 1.48)],
+      FLOOR_RX: 1.5, FLOOR_RZ: 1.1,
     };
-    const K = SITTING ? A_SIT : A_STAND;
+    const K = POSE === 'standing' ? STANDING : POSE === 'full-sit' ? FULLSIT : SITTING_BASE;
+    const STANDING_POSE = POSE === 'standing';
     const HEAD_R = 0.82 * u;
     // eyes on the head sphere's +z (face) side, in head-local coordinates
-    const EYE_L: V = { x: -0.28 * u, y: -0.1 * u, z: 0.75 * u };
-    const EYE_R: V = { x: 0.28 * u, y: -0.1 * u, z: 0.75 * u };
+    const EYE_L: V = v(-0.28, -0.1, 0.75);
+    const EYE_R: V = v(0.28, -0.1, 0.75);
 
     const rotY = (p: V, s: number, c: number): V => ({ x: p.x * c + p.z * s, y: p.y, z: -p.x * s + p.z * c });
 
@@ -141,7 +152,7 @@ const { pose = 'standing', eyes = true } = Astro.props;
       const tor = -0.3 * pose, hed = -1.45 * pose;
       const st = Math.sin(tor), ct = Math.cos(tor);
       // standing: a slow breathing sway of the upper body when at rest
-      const breathe = SITTING ? 0 : (1 - pose) * Math.sin(t * 0.003) * 0.025 * u;
+      const breathe = STANDING_POSE ? (1 - pose) * Math.sin(t * 0.003) * 0.025 * u : 0;
       const twist = (p: V): V => {
         const q = rotY({ x: p.x, y: 0, z: p.z }, st, ct);
         return { x: q.x, y: p.y + breathe, z: q.z };
@@ -150,39 +161,30 @@ const { pose = 'standing', eyes = true } = Astro.props;
       // floor ellipse (grounding)
       ctx.strokeStyle = `rgba(${TEAL},0.16)`; ctx.lineWidth = dpr;
       ctx.beginPath();
-      const frx = SITTING ? 2.1 * u : 1.5 * u, frz = SITTING ? 1.5 * u : 1.1 * u;
       for (let i = 0; i <= 28; i++) {
         const a = (i / 28) * 6.2832;
-        const p = project(Math.cos(a) * frx, FLOOR, Math.sin(a) * frz);
+        const p = project(Math.cos(a) * K.FLOOR_RX * u, FLOOR, Math.sin(a) * K.FLOOR_RZ * u);
         if (!p.ok) continue;
         if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
       }
       ctx.stroke();
 
-      if (SITTING) {
-        // laptop (in front of the figure — i.e. between it and the cards)
-        const lap: V[] = [
-          { x: -1.05 * u, y: 1.85 * u, z: 1.35 * u }, { x: 1.05 * u, y: 1.85 * u, z: 1.35 * u },
-          { x: 1.05 * u, y: 1.9 * u, z: 2.2 * u }, { x: -1.05 * u, y: 1.9 * u, z: 2.2 * u },
-        ];
-        const scr: V[] = [
-          { x: -1.05 * u, y: 1.9 * u, z: 2.2 * u }, { x: 1.05 * u, y: 1.9 * u, z: 2.2 * u },
-          { x: 1.05 * u, y: 0.05 * u, z: 2.5 * u }, { x: -1.05 * u, y: 0.05 * u, z: 2.5 * u },
-        ];
-        for (let i = 0; i < 4; i++) seg(lap[i], lap[(i + 1) % 4], dim, lwd);
-        for (let i = 0; i < 4; i++) seg(scr[i], scr[(i + 1) % 4], dim, lwd);
-        // screen glow (flickers while typing, steadies when the figure turns)
-        const flick = (1 - pose) * 0.03 * Math.sin(t * 0.02) + 0.1;
-        ctx.fillStyle = `rgba(${TEAL},${Math.max(0.06, flick).toFixed(3)})`;
-        ctx.beginPath();
-        let first = true;
-        for (const p of scr) {
-          const Bp = base(p);
-          const q = project(Bp.x, Bp.y, Bp.z); if (!q.ok) { first = true; continue; }
-          if (first) { ctx.moveTo(q.x, q.y); first = false; } else ctx.lineTo(q.x, q.y);
-        }
-        ctx.closePath(); ctx.fill();
+      // laptop — always present; held (standing), on the lap (sitting), or
+      // on the ground (full-sit). Held laptops breathe with the body.
+      const lift = (p: V): V => ({ x: p.x, y: p.y + (STANDING_POSE ? breathe : 0), z: p.z });
+      for (let i = 0; i < 4; i++) seg(lift(K.LAP[i]), lift(K.LAP[(i + 1) % 4]), dim, lwd);
+      for (let i = 0; i < 4; i++) seg(lift(K.SCR[i]), lift(K.SCR[(i + 1) % 4]), dim, lwd);
+      // screen glow (flickers while typing, steadies when the figure turns)
+      const flick = (1 - pose) * 0.03 * Math.sin(t * 0.02) + 0.1;
+      ctx.fillStyle = `rgba(${TEAL},${Math.max(0.06, flick).toFixed(3)})`;
+      ctx.beginPath();
+      let first = true;
+      for (const p of K.SCR) {
+        const Bp = base(lift(p));
+        const q = project(Bp.x, Bp.y, Bp.z); if (!q.ok) { first = true; continue; }
+        if (first) { ctx.moveTo(q.x, q.y); first = false; } else ctx.lineTo(q.x, q.y);
       }
+      ctx.closePath(); ctx.fill();
 
       // legs
       const hipL = twist(K.HIP_L), hipR = twist(K.HIP_R);
@@ -199,13 +201,13 @@ const { pose = 'standing', eyes = true } = Astro.props;
       const headC = twist(K.HEAD);
       seg(neck, { x: headC.x, y: headC.y + HEAD_R * 0.98, z: headC.z }, line, lw);
 
-      // arms — sitting: the far hand types, the near hand lifts to the knee
-      // on hover; standing: both hang relaxed (a hint of motion on hover)
-      const typeBob = SITTING ? (1 - pose) * Math.sin(t * 0.012) * 0.05 * u : 0;
-      const wriL: V = { x: K.WRI_L.x, y: K.WRI_L.y + typeBob + breathe, z: K.WRI_L.z };
+      // arms — the left holds/types; the right types and lifts off the keys
+      // toward its rest target as the figure turns to face you
+      const typeBob = (1 - pose) * Math.sin(t * 0.012) * 0.05 * u;
+      const wriL: V = { x: K.WRI_L.x, y: K.WRI_L.y + (STANDING_POSE ? breathe : typeBob), z: K.WRI_L.z };
       seg(shoL, twist(K.ELB_L), line, lw); seg(twist(K.ELB_L), wriL, line, lw);
       const elbR = L(K.ELB_R0, K.ELB_R1, pose), wriR = L(K.WRI_R0, K.WRI_R1, pose);
-      const wriR2: V = { x: wriR.x, y: wriR.y + (1 - pose) * -typeBob + breathe, z: wriR.z };
+      const wriR2: V = { x: wriR.x, y: wriR.y + (1 - pose) * -typeBob, z: wriR.z };
       seg(shoR, twist(elbR), line, lw); seg(twist(elbR), twist(wriR2), line, lw);
       dot(twist(wriR2), 2.2 * dpr, line); dot(wriL, 2.2 * dpr, line);
 
@@ -232,7 +234,7 @@ const { pose = 'standing', eyes = true } = Astro.props;
 
     if (reduce) { pose = 0; draw(0); return; } // single static frame
 
-    // hover → fluid turn; leave → back to rest
+    // hover → fluid turn; leave → back to work
     cv.addEventListener('pointerenter', () => { poseTarget = 1; });
     cv.addEventListener('pointerleave', () => { poseTarget = 0; });
 
