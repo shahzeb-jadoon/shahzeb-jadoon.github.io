@@ -89,23 +89,25 @@ const { pose = 'standing', eyes = true } = Astro.props;
       ANK_L: { x: 0.45 * u, y: 3.2 * u, z: 0.95 * u },
       ANK_R: { x: -0.45 * u, y: 3.2 * u, z: 0.95 * u },
     };
+    // Standing is seen in profile, so silhouette depth (local z) is what
+    // reads on screen: arms hang slightly forward, one foot leads.
     const A_STAND = {
       NECK: { x: 0, y: -1.25 * u, z: 0.03 * u },
-      HEAD: { x: 0, y: -2.1 * u, z: 0.06 * u },
+      HEAD: { x: 0, y: -2.1 * u, z: 0.1 * u },
       SHO_L: { x: -0.72 * u, y: -1.05 * u, z: 0 },
       SHO_R: { x: 0.72 * u, y: -1.05 * u, z: 0 },
-      HIP_L: { x: -0.4 * u, y: 0.75 * u, z: 0 },
-      HIP_R: { x: 0.4 * u, y: 0.75 * u, z: 0 },
-      ELB_L: { x: -0.8 * u, y: -0.15 * u, z: 0.02 * u },
-      WRI_L: { x: -0.75 * u, y: 0.75 * u, z: 0.12 * u },
-      ELB_R0: { x: 0.8 * u, y: -0.15 * u, z: 0.02 * u },
-      WRI_R0: { x: 0.75 * u, y: 0.75 * u, z: 0.12 * u },
-      ELB_R1: { x: 0.85 * u, y: -0.2 * u, z: 0.05 * u }, // hover: barely moves
-      WRI_R1: { x: 0.8 * u, y: 0.7 * u, z: 0.18 * u },
-      KNEE_L: { x: -0.33 * u, y: 1.95 * u, z: 0.06 * u },
-      KNEE_R: { x: 0.33 * u, y: 1.95 * u, z: 0.06 * u },
-      ANK_L: { x: -0.35 * u, y: 3.18 * u, z: 0 },
-      ANK_R: { x: 0.35 * u, y: 3.18 * u, z: 0 },
+      HIP_L: { x: -0.4 * u, y: 0.75 * u, z: -0.05 * u },
+      HIP_R: { x: 0.4 * u, y: 0.75 * u, z: -0.05 * u },
+      ELB_L: { x: -0.8 * u, y: -0.15 * u, z: 0.16 * u },
+      WRI_L: { x: -0.72 * u, y: 0.72 * u, z: 0.34 * u },
+      ELB_R0: { x: 0.8 * u, y: -0.15 * u, z: 0.16 * u },
+      WRI_R0: { x: 0.72 * u, y: 0.72 * u, z: 0.34 * u },
+      ELB_R1: { x: 0.85 * u, y: -0.2 * u, z: 0.2 * u }, // hover: barely moves
+      WRI_R1: { x: 0.78 * u, y: 0.68 * u, z: 0.4 * u },
+      KNEE_L: { x: -0.33 * u, y: 1.95 * u, z: 0.22 * u },
+      KNEE_R: { x: 0.33 * u, y: 1.95 * u, z: -0.02 * u },
+      ANK_L: { x: -0.35 * u, y: 3.18 * u, z: 0.34 * u },
+      ANK_R: { x: 0.35 * u, y: 3.18 * u, z: -0.14 * u },
     };
     const K = SITTING ? A_SIT : A_STAND;
     const HEAD_R = 0.82 * u;
