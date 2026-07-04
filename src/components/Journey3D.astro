@@ -26,8 +26,20 @@
 // added payload is ~0. Gating per the §5.2 contract: desktop-only,
 // reduced-motion off, DPR ≤ 1.25, ~30 fps cap, hidden-tab pause; the .has-bg
 // posters remain the fallback. Purely decorative (aria-hidden).
+//
+// Per-scene switches: pass `scenes` from index.astro to turn any scene off
+// individually (a disabled station simply stays empty as the camera passes).
+// `starBirth` controls only the birth glow; `starfield` controls the stars
+// themselves in both the writing and contact stations.
+interface Props {
+  scenes?: {
+    circuit?: boolean; board?: boolean; chip?: boolean; brain?: boolean;
+    neurons?: boolean; starBirth?: boolean; starfield?: boolean;
+  };
+}
+const { scenes = {} } = Astro.props;
 ---
-<canvas class="journey" id="journey3d" aria-hidden="true"></canvas>
+<canvas class="journey" id="journey3d" data-scenes={JSON.stringify(scenes)} aria-hidden="true"></canvas>
 
 <script>
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -35,7 +47,14 @@
   const capable = (navigator.hardwareConcurrency || 4) >= 4;
   const cv = document.getElementById('journey3d') as HTMLCanvasElement | null;
 
-  if (cv && !reduce && desktop && capable) setup(cv);
+  // Per-scene switches from index.astro (anything unspecified defaults ON).
+  const SCN = Object.assign(
+    { circuit: true, board: true, chip: true, brain: true, neurons: true, starBirth: true, starfield: true },
+    JSON.parse(cv?.dataset.scenes || '{}'),
+  );
+  const anyScene = Object.values(SCN).some(Boolean);
+
+  if (cv && anyScene && !reduce && desktop && capable) setup(cv);
 
   function setup(cv: HTMLCanvasElement) {
     const ctx = cv.getContext('2d');
@@ -568,6 +587,7 @@
         const q = project(0, 0, zk);
         if (q.ok) ctx.drawImage(glow, q.x - s / 2, q.y - s / 2, s, s);
       }
+      if (!SCN.starfield) { ctx.globalAlpha = 1; return; } // birth glow only
       for (const st of stars) {
         tf(st, 0, 1, 0, 1, 1, 0, zk, A);
         const q = project(A.x, A.y, A.z); if (!q.ok) continue;
@@ -599,18 +619,18 @@
         // hop 0→1 zooms OUT: the wiring starts CLOSE-UP (1.9×) and shrinks
         // toward the board's central package as you scroll
         const shrink = k === 0 ? 1.9 - 1.68 * Math.min(1, Math.max(0, p)) : 1;
-        if (k === 0) drawCircuit(t, al, zk, Math.max(0.22, shrink));
-        else if (k === 1) drawBoard(t, al, zk);
-        else if (k === 2) drawChip(t, al, zk);
-        else if (k === 3) drawBrain(t, al, zk);
-        else if (k === 4) drawNeurons(t, al, zk);
+        if (k === 0) { if (SCN.circuit) drawCircuit(t, al, zk, Math.max(0.22, shrink)); }
+        else if (k === 1) { if (SCN.board) drawBoard(t, al, zk); }
+        else if (k === 2) { if (SCN.chip) drawChip(t, al, zk); }
+        else if (k === 3) { if (SCN.brain) drawBrain(t, al, zk); }
+        else if (k === 4) { if (SCN.neurons) drawNeurons(t, al, zk); }
         else if (k === 5) {
           // the star is born near the END of experience (p ≈ 4.6) and the
           // field resolves to plain twinkling by the writing section
-          const birth = Math.max(0, Math.min(1, 1 - (p - 4.55) / 0.75));
-          drawStars(t, al, zk, birth);
+          const birth = SCN.starBirth ? Math.max(0, Math.min(1, 1 - (p - 4.55) / 0.75)) : 0;
+          if (SCN.starfield || SCN.starBirth) drawStars(t, al, zk, birth);
         } else {
-          drawStars(t, al, zk, 0); // contact: the same sky, a little deeper in
+          if (SCN.starfield) drawStars(t, al, zk, 0); // contact: the same sky, deeper in
         }
       }
     };

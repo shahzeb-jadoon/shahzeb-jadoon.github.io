@@ -11,13 +11,29 @@ const projects = (await getCollection('projects')).sort(
 );
 const bySlug = Object.fromEntries(projects.map((p) => [p.id, p]));
 
-// The 3D avatar in the contact section — all three switches in one place:
-//   showAvatar  false hides the figure entirely
-//   avatarPose  'standing' (upright) or 'sitting' (cross-legged on the ground)
-//   avatarEyes  false removes the eyes in either pose
-const showAvatar = true;
-const avatarPose: 'standing' | 'sitting' = 'standing';
-const avatarEyes = true;
+// ======================= 3D SWITCHBOARD (see the Settings Manual) =========
+// show3D       master switch — false removes EVERY 3D element at once
+//              (all journey scenes AND the avatar)
+// showScenes   per-scene switches for the journey; set any to false to turn
+//              that scene off individually (its station simply stays empty)
+// showAvatar   false hides the avatar (even when show3D is true)
+// avatarPose   'standing' (laptop on forearm) · 'sitting' (lap height)
+//              · 'full-sit' (fully down on the floor)
+// avatarEyes   false removes the eyes in any pose
+const show3D = true;
+const showScenes = {
+  circuit: true,    // hero — suspended wiring
+  board: true,      // what I work on — hovering PCB
+  chip: true,       // selected work — chip die
+  brain: true,      // skills — organic brain
+  neurons: true,    // experience — neuron field
+  starBirth: true,  // end of experience — the birth glow
+  starfield: true,  // writing + contact — the stars themselves
+};
+const showAvatar = false;
+const avatarPose: 'standing' | 'sitting' | 'full-sit' = 'sitting';
+const avatarEyes = false;
+// ===========================================================================
 
 // What I work on — the fields themselves, stated as vision, not achievements
 // (the metrics live on the project cards below). Icons are hand-drawn inline
@@ -54,7 +70,7 @@ const pillars = [
   <!-- One fixed 3D canvas drives the whole page: suspended circuit wiring →
        hovering PCB (CPU/GPU/NPU/MCU/RAM) → chip die → brain → deep neuron
        field → starfield — each section is a stop for the camera dolly. -->
-  <Journey3D />
+  {show3D && <Journey3D scenes={showScenes} />}
 
   <!-- HERO — name → title → mission, over the zoomed-in circuit -->
   <section id="hero" class="screen has-bg" aria-labelledby="hero-h">
@@ -190,11 +206,11 @@ const pillars = [
       </div>
       </div>
 
-      <!-- 3D avatar: a wireframe figure facing the contact cards; hovering it
-           turns the head (and, when sitting, lifts the hand off the keys) to
-           look at you — a fluid 3D interpolation, not an image swap.
-           Configure with showAvatar / avatarPose / avatarEyes up top. -->
-      {showAvatar && (
+      <!-- 3D avatar: a wireframe figure facing the contact cards, always at
+           work on the laptop; hovering it lifts the hand off the keys and
+           turns the head to look at you — a fluid 3D interpolation, not an
+           image swap. Configure in the 3D switchboard up top. -->
+      {show3D && showAvatar && (
         <div class="avatar" aria-hidden="true">
           <Avatar3D pose={avatarPose} eyes={avatarEyes} />
         </div>
