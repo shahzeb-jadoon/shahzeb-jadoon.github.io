@@ -11,33 +11,37 @@ const projects = (await getCollection('projects')).sort(
 );
 const bySlug = Object.fromEntries(projects.map((p) => [p.id, p]));
 
-// The four things I actually work on (from the About). Icons are hand-drawn
-// inline SVG paths (24×24, stroke = currentColor) — consistent across every
-// OS, tinted by the accent token, and still zero icon dependencies.
+// Toggle the 3D avatar in the contact section (set false to hide it).
+const showAvatar = true;
+
+// What I work on — the fields themselves, stated as vision, not achievements
+// (the metrics live on the project cards below). Icons are hand-drawn inline
+// SVG paths (24×24, stroke = currentColor) — consistent across every OS,
+// tinted by the accent token, zero icon dependencies.
 const pillars = [
   {
     ico: '<rect x="7" y="7" width="10" height="10" rx="2"/><rect x="10.3" y="10.3" width="3.4" height="3.4"/><path d="M9 7V4.2M12 7V4.2M15 7V4.2M9 19.8V17M12 19.8V17M15 19.8V17M7 9H4.2M7 12H4.2M7 15H4.2M19.8 9H17M19.8 12H17M19.8 15H17"/>',
-    h: 'Edge AI & HW–SW Co-Design',
-    p: 'INT8 QAT, model surgery, and pruning — mapping deep networks onto neuromorphic silicon and custom CUDA kernels.',
+    h: 'Edge AI',
+    p: 'Taking intelligence out of the datacenter and into the devices where decisions actually happen — small, fast, and power-aware.',
     slug: 'brainchip-akida-segmentation',
   },
   {
+    ico: '<path d="M12 3.5l8.5 4.5L12 12.5 3.5 8z"/><path d="M3.5 12l8.5 4.5L20.5 12"/><path d="M3.5 16l8.5 4.5 8.5-4.5"/>',
+    h: 'HW–SW Co-Design',
+    p: 'Shaping the model and the silicon path as one problem, so networks fit the chip instead of fighting it.',
+    slug: 'vgg16-cuda-optimization',
+  },
+  {
     ico: '<path d="M20.5 12a8.5 8.5 0 1 1-3-6.5"/><path d="M16.4 12a4.4 4.4 0 1 1-1.6-3.4"/><path d="M12 12l5.5-5.5"/><circle cx="18.2" cy="5.8" r="1.1"/>',
-    h: 'Autonomous Systems & Vision',
-    p: 'Imitation learning, sensor fusion, and 3.6 TB of CARLA data engineering for edge-deployable driving models.',
+    h: 'Autonomous Systems / Robotics',
+    p: 'Perception and control that hold up outside the lab — machines that sense, decide, and act in the real world.',
     slug: 'neuromorphic-vision-rwkv',
   },
   {
     ico: '<circle cx="12" cy="6.4" r="2.5"/><circle cx="5.8" cy="17.2" r="2.5"/><circle cx="18.2" cy="17.2" r="2.5"/><path d="M10.9 8.6l-3.7 6.4M13.1 8.6l3.7 6.4M8.3 17.2h7.4"/>',
-    h: 'Production Multi-Agent LLMs',
-    p: 'A live FastAPI + LiteLLM platform that decouples the LLM “brain” from ROS2-ready robot bodies.',
+    h: 'Multi-Agent LLM Systems',
+    p: 'Turning fleets of language models into dependable systems — a shared brain that any robot body can plug into.',
     slug: 'rri-orchestrator',
-  },
-  {
-    ico: '<path d="M3.5 19.5h17"/><path d="M4.5 19.5c3.8 0 3.3-11.5 7.5-11.5s3.7 11.5 7.5 11.5"/>',
-    h: 'Quantitative Rigor',
-    p: 'Multi-seed runs, paired t-tests, effect sizes — treating every model output as a variance budget to bound.',
-    slug: 'quantum-policy-gradient',
   },
 ];
 ---
@@ -47,13 +51,12 @@ const pillars = [
        field → starfield — each section is a stop for the camera dolly. -->
   <Journey3D />
 
-  <!-- HERO — name, quote, title over the circuit; everything else waits for the scroll -->
+  <!-- HERO — name → title → mission, over the zoomed-in circuit -->
   <section id="hero" class="screen has-bg" aria-labelledby="hero-h">
     <div class="screen-inner">
-      <p class="hero-eyebrow">Edge&nbsp;AI · Hardware–Software&nbsp;Co-Design · Autonomous&nbsp;Systems</p>
       <h1 id="hero-h" class="hero-name">{site.name}</h1>
-      <p class="hero-quote">{site.quote}</p>
-      <p class="hero-role">{site.role}</p>
+      <p class="hero-title">{site.role}</p>
+      <p class="hero-mission">{site.mission}</p>
     </div>
     <a class="scroll-cue" href="#field" aria-label="Scroll to content">↓</a>
   </section>
@@ -73,9 +76,6 @@ const pillars = [
               </div>
               <h3>{p.h}</h3>
               <p>{p.p}</p>
-              {proj?.data.metrics[0] && (
-                <p class="pillar-proof">{proj.data.metrics[0].value} · {proj.data.metrics[0].label}</p>
-              )}
               {proj && <a class="pillar-link" href={`/work/${proj.id}/`}>See the work →</a>}
             </article>
           );
@@ -158,11 +158,11 @@ const pillars = [
       <p class="lead">Open to Forward-Deployed / Applied AI, ML Engineering, and Edge-AI roles —
         building AI that survives contact with real hardware. Based in {site.location}.</p>
       <div class="contact-grid">
-        <a class="contact-card glass" href={`mailto:${site.email}`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6.5l9 6.5 9-6.5"/>
+        <a class="contact-card glass" href={site.github}>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.09 3.29 9.4 7.86 10.93.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.7 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/>
           </svg>
-          <span class="cc-body"><b>Email</b><span>{site.email}</span></span>
+          <span class="cc-body"><b>GitHub</b><span>@shahzeb-jadoon</span></span>
         </a>
         <a class="contact-card glass" href={site.linkedin}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -170,11 +170,11 @@ const pillars = [
           </svg>
           <span class="cc-body"><b>LinkedIn</b><span>in/shahzeb-jadoon</span></span>
         </a>
-        <a class="contact-card glass" href={site.github}>
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.09 3.29 9.4 7.86 10.93.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.7 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/>
+        <a class="contact-card glass" href={`mailto:${site.email}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6.5l9 6.5 9-6.5"/>
           </svg>
-          <span class="cc-body"><b>GitHub</b><span>@shahzeb-jadoon</span></span>
+          <span class="cc-body"><b>Email</b><span>{site.email}</span></span>
         </a>
         <a class="contact-card glass" href={`tel:${site.phoneE164}`}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -185,13 +185,15 @@ const pillars = [
       </div>
       </div>
 
-      <!-- 3D avatar under the stars: a wireframe-hologram figure typing on a
-           laptop, back to the viewer; hovering it makes the hand drop, the
-           torso twist, and the head turn to look at you — a fluid 3D
-           interpolation, not an image swap. -->
-      <div class="avatar" aria-hidden="true">
-        <Avatar3D />
-      </div>
+      <!-- 3D avatar: a wireframe figure typing on a laptop, facing the contact
+           cards; hovering it makes the hand drop, the torso twist, and the
+           head turn to look at you — a fluid 3D interpolation, not an image
+           swap. Toggle with `showAvatar` in this file's frontmatter. -->
+      {showAvatar && (
+        <div class="avatar" aria-hidden="true">
+          <Avatar3D />
+        </div>
+      )}
     </div>
   </section>
 </Base>
